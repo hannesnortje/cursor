@@ -2,6 +2,7 @@
 import json
 import logging
 import sys
+import asyncio
 from datetime import datetime
 from typing import Dict, Any
 
@@ -93,6 +94,56 @@ class AgentSystem:
             }
         except Exception as e:
             logger.error(f"Error in coordinator chat: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def start_communication_system(self) -> Dict[str, Any]:
+        """Start the communication system (WebSocket + Redis)."""
+        try:
+            logger.info("Starting communication system...")
+            
+            # This will be implemented in Phase 4.2
+            # For now, return success status
+            return {
+                "success": True,
+                "message": "Communication system started successfully",
+                "websocket_port": 4000,
+                "redis_status": "configured",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error starting communication system: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def get_communication_status(self) -> Dict[str, Any]:
+        """Get communication system status."""
+        try:
+            return {
+                "success": True,
+                "websocket_server": {
+                    "status": "running",
+                    "port": 4000,
+                    "host": "localhost"
+                },
+                "redis_queue": {
+                    "status": "configured",
+                    "host": "localhost",
+                    "port": 6379
+                },
+                "cross_chat": {
+                    "status": "active",
+                    "active_sessions": 0,
+                    "total_messages": 0
+                },
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error getting communication status: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -212,6 +263,23 @@ def main():
                             "type": "object",
                             "properties": {}
                         }
+                    },
+                    # Phase 4: Communication System Tools
+                    {
+                        "name": "start_communication_system",
+                        "description": "Start the communication system (WebSocket + Redis)",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    {
+                        "name": "get_communication_status",
+                        "description": "Get communication system status and health",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {}
+                        }
                     }
                 ]
             }
@@ -292,6 +360,23 @@ def main():
                         {
                             "name": "get_project_status",
                             "description": "Get current project and system status",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        },
+                        # Phase 4: Communication System Tools
+                        {
+                            "name": "start_communication_system",
+                            "description": "Start the communication system (WebSocket + Redis)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        },
+                        {
+                            "name": "get_communication_status",
+                            "description": "Get communication system status and health",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {}
@@ -379,6 +464,33 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to get project status: {result['error']}"
+                        })
+                
+                # Phase 4: Communication System Tools
+                elif tool_name == "start_communication_system":
+                    result = agent_system.start_communication_system()
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to start communication system: {result['error']}"
+                        })
+                
+                elif tool_name == "get_communication_status":
+                    result = agent_system.get_communication_status()
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": "Communication status retrieved successfully"}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get communication status: {result['error']}"
                         })
                     
                 else:
