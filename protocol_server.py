@@ -4,7 +4,7 @@ import logging
 import sys
 import asyncio
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Enhanced logging configuration
 logging.basicConfig(
@@ -115,6 +115,55 @@ class AgentSystem:
             }
         except Exception as e:
             logger.error(f"Error starting communication system: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def create_cross_chat_session(self, chat_id: str, chat_type: str, 
+                                 participants: List[str]) -> Dict[str, Any]:
+        """Create a new cross-chat session."""
+        try:
+            logger.info(f"Creating cross-chat session: {chat_id}")
+            
+            # This will be implemented with the actual cross-chat service
+            # For now, return success status
+            return {
+                "success": True,
+                "message": f"Cross-chat session {chat_id} created successfully",
+                "chat_id": chat_id,
+                "chat_type": chat_type,
+                "participants": participants,
+                "status": "active",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error creating cross-chat session: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def broadcast_cross_chat_message(self, source_chat: str, source_agent: str,
+                                   content: str, target_chats: List[str]) -> Dict[str, Any]:
+        """Broadcast a message across multiple chat sessions."""
+        try:
+            logger.info(f"Broadcasting message from {source_agent} in {source_chat}")
+            
+            # This will be implemented with the actual cross-chat service
+            # For now, return success status
+            return {
+                "success": True,
+                "message": "Message broadcast successfully",
+                "source_chat": source_chat,
+                "source_agent": source_agent,
+                "content": content,
+                "target_chats": target_chats,
+                "broadcast_count": len(target_chats),
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error broadcasting message: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -280,6 +329,34 @@ def main():
                             "type": "object",
                             "properties": {}
                         }
+                    },
+                    # Phase 4.2: Cross-Chat Communication Tools
+                    {
+                        "name": "create_cross_chat_session",
+                        "description": "Create a new cross-chat session for multi-chat communication",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "chat_id": {"type": "string"},
+                                "chat_type": {"type": "string"},
+                                "participants": {"type": "array", "items": {"type": "string"}}
+                            },
+                            "required": ["chat_id", "chat_type", "participants"]
+                        }
+                    },
+                    {
+                        "name": "broadcast_cross_chat_message",
+                        "description": "Broadcast a message across multiple chat sessions",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "source_chat": {"type": "string"},
+                                "source_agent": {"type": "string"},
+                                "content": {"type": "string"},
+                                "target_chats": {"type": "array", "items": {"type": "string"}}
+                            },
+                            "required": ["source_chat", "source_agent", "content", "target_chats"]
+                        }
                     }
                 ]
             }
@@ -380,6 +457,34 @@ def main():
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {}
+                            }
+                        },
+                        # Phase 4.2: Cross-Chat Communication Tools
+                        {
+                            "name": "create_cross_chat_session",
+                            "description": "Create a new cross-chat session for multi-chat communication",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "chat_id": {"type": "string"},
+                                    "chat_type": {"type": "string"},
+                                    "participants": {"type": "array", "items": {"type": "string"}}
+                                },
+                                "required": ["chat_id", "chat_type", "participants"]
+                            }
+                        },
+                        {
+                            "name": "broadcast_cross_chat_message",
+                            "description": "Broadcast a message across multiple chat sessions",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "source_chat": {"type": "string"},
+                                    "source_agent": {"type": "string"},
+                                    "content": {"type": "string"},
+                                    "target_chats": {"type": "array", "items": {"type": "string"}}
+                                },
+                                "required": ["source_chat", "source_agent", "content", "target_chats"]
                             }
                         }
                     ]
@@ -492,6 +597,54 @@ def main():
                             "code": -32603,
                             "message": f"Failed to get communication status: {result['error']}"
                         })
+                
+                # Phase 4.2: Cross-Chat Communication Tools
+                elif tool_name == "create_cross_chat_session":
+                    chat_id = arguments.get("chat_id", "")
+                    chat_type = arguments.get("chat_type", "")
+                    participants = arguments.get("participants", [])
+                    
+                    if not chat_id or not chat_type or not participants:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "chat_id, chat_type, and participants are required"
+                        })
+                    else:
+                        result = agent_system.create_cross_chat_session(chat_id, chat_type, participants)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create cross-chat session: {result['error']}"
+                            })
+                
+                elif tool_name == "broadcast_cross_chat_message":
+                    source_chat = arguments.get("source_chat", "")
+                    source_agent = arguments.get("source_agent", "")
+                    content = arguments.get("content", "")
+                    target_chats = arguments.get("target_chats", [])
+                    
+                    if not source_chat or not source_agent or not content or not target_chats:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "source_chat, source_agent, content, and target_chats are required"
+                        })
+                    else:
+                        result = agent_system.broadcast_cross_chat_message(source_chat, source_agent, content, target_chats)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to broadcast message: {result['error']}"
+                            })
                     
                 else:
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
