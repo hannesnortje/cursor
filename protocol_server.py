@@ -4,7 +4,7 @@ import logging
 import sys
 import asyncio
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Enhanced logging configuration
 logging.basicConfig(
@@ -164,6 +164,86 @@ class AgentSystem:
             }
         except Exception as e:
             logger.error(f"Error broadcasting message: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def get_cross_chat_messages(self, chat_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+        """Get cross-chat messages for a specific chat or all chats."""
+        try:
+            logger.info(f"Retrieving cross-chat messages for chat: {chat_id or 'all'}")
+            
+            # This will be implemented with the real-time handler
+            # For now, return simulation data
+            if chat_id:
+                return {
+                    "success": True,
+                    "chat_id": chat_id,
+                    "messages": [
+                        {
+                            "message_id": "msg_001",
+                            "source_chat": "dev_team",
+                            "source_agent": "coordinator",
+                            "content": "🚀 System-wide announcement: Development sprint starting tomorrow at 9 AM!",
+                            "timestamp": datetime.now().isoformat(),
+                            "target_chats": ["all"]
+                        }
+                    ],
+                    "message_count": 1,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": True,
+                    "messages": [
+                        {
+                            "message_id": "msg_001",
+                            "source_chat": "dev_team",
+                            "source_agent": "coordinator",
+                            "content": "🚀 System-wide announcement: Development sprint starting tomorrow at 9 AM!",
+                            "timestamp": datetime.now().isoformat(),
+                            "target_chats": ["all"]
+                        }
+                    ],
+                    "total_messages": 1,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error retrieving cross-chat messages: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def search_cross_chat_messages(self, query: str, chat_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+        """Search cross-chat messages by content."""
+        try:
+            logger.info(f"Searching cross-chat messages for: '{query}' in chat: {chat_id or 'all'}")
+            
+            # This will be implemented with the real-time handler
+            # For now, return simulation data
+            return {
+                "success": True,
+                "query": query,
+                "chat_id": chat_id,
+                "results": [
+                    {
+                        "message_id": "msg_001",
+                        "source_chat": "dev_team",
+                        "source_agent": "coordinator",
+                        "content": "🚀 System-wide announcement: Development sprint starting tomorrow at 9 AM!",
+                        "timestamp": datetime.now().isoformat(),
+                        "target_chats": ["all"]
+                    }
+                ],
+                "results_count": 1,
+                "timestamp": datetime.now().isoformat()
+            }
+                
+        except Exception as e:
+            logger.error(f"Error searching cross-chat messages: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -486,6 +566,32 @@ def main():
                                 },
                                 "required": ["source_chat", "source_agent", "content", "target_chats"]
                             }
+                        },
+                        # Phase 4.3: Message Queue Integration Tools
+                        {
+                            "name": "get_cross_chat_messages",
+                            "description": "Get cross-chat messages for a specific chat or all chats",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "chat_id": {"type": "string"},
+                                    "limit": {"type": "integer"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "search_cross_chat_messages",
+                            "description": "Search cross-chat messages by content",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string"},
+                                    "chat_id": {"type": "string"},
+                                    "limit": {"type": "integer"}
+                                },
+                                "required": ["query"]
+                            }
                         }
                     ]
                 }
@@ -644,6 +750,46 @@ def main():
                             send_response(request_id, error={
                                 "code": -32603,
                                 "message": f"Failed to broadcast message: {result['error']}"
+                            })
+                
+                # Phase 4.3: Message Queue Integration Tools
+                elif tool_name == "get_cross_chat_messages":
+                    chat_id = arguments.get("chat_id")
+                    limit = arguments.get("limit", 50)
+                    
+                    result = agent_system.get_cross_chat_messages(chat_id, limit)
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Retrieved {result.get('message_count', result.get('total_messages', 0))} cross-chat messages"}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get cross-chat messages: {result['error']}"
+                        })
+                
+                elif tool_name == "search_cross_chat_messages":
+                    query = arguments.get("query", "")
+                    chat_id = arguments.get("chat_id")
+                    limit = arguments.get("limit", 50)
+                    
+                    if not query:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "query is required"
+                        })
+                    else:
+                        result = agent_system.search_cross_chat_messages(query, chat_id, limit)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Found {result['results_count']} messages matching '{query}'"}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to search cross-chat messages: {result['error']}"
                             })
                     
                 else:

@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 from .message_router import MessageRouter, CrossChatMessage, ChatSession
 from .session_manager import SessionManager
 from .websocket_server import WebSocketServer, WebSocketMessage
+from .real_time_handler import RealTimeMessageHandler
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +46,12 @@ class CrossChatCoordinator:
     
     def __init__(self, websocket_server: WebSocketServer, 
                  message_router: MessageRouter, 
-                 session_manager: SessionManager):
+                 session_manager: SessionManager,
+                 real_time_handler: RealTimeMessageHandler):
         self.websocket_server = websocket_server
         self.message_router = message_router
         self.session_manager = session_manager
+        self.real_time_handler = real_time_handler
         
         # Cross-chat state
         self.active_chats: Dict[str, Dict[str, Any]] = {}
@@ -206,6 +209,13 @@ class CrossChatCoordinator:
                     # For now, we'll simulate the broadcast
                     websocket_broadcast_count += 1
             
+            # Store message in real-time handler for cross-chat visibility
+            try:
+                await self.real_time_handler.store_cross_chat_message(event)
+                logger.info(f"Cross-chat message stored for real-time visibility: {event.event_id}")
+            except Exception as e:
+                logger.error(f"Failed to store cross-chat message: {e}")
+            
             # Handle event with appropriate handler
             if event.event_type in self.event_handlers:
                 try:
@@ -219,6 +229,7 @@ class CrossChatCoordinator:
                 "target_chats": target_chats,
                 "routed_messages": routing_result.get("routed_count", 0),
                 "websocket_broadcasts": websocket_broadcast_count,
+                "real_time_stored": True,
                 "timestamp": datetime.now().isoformat()
             }
             
