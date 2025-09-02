@@ -5,6 +5,7 @@ import sys
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import threading
 
 # Enhanced logging configuration
 logging.basicConfig(
@@ -150,8 +151,67 @@ class AgentSystem:
         try:
             logger.info(f"Broadcasting message from {source_agent} in {source_chat}")
             
-            # This will be implemented with the actual cross-chat service
-            # For now, return success status
+            # Store the message in memory for now
+            if not hasattr(self, '_cross_chat_messages'):
+                self._cross_chat_messages = []
+            
+            import uuid
+            from datetime import datetime
+            
+            message_data = {
+                "message_id": str(uuid.uuid4()),
+                "source_chat": source_chat,
+                "source_agent": source_agent,
+                "content": content,
+                "timestamp": datetime.now().isoformat(),
+                "target_chats": target_chats
+            }
+            
+            # Store in memory (fallback)
+            self._cross_chat_messages.append(message_data)
+            
+            # Try to store in Redis for persistence
+            try:
+                if hasattr(self, 'real_time_handler') and self.real_time_handler:
+                    # Create CrossChatEvent for Redis storage
+                    from src.communication.cross_chat_coordinator import CrossChatEvent
+                    event = CrossChatEvent(
+                        event_id=message_data["message_id"],
+                        source_chat=source_chat,
+                        source_agent=source_agent,
+                        content=content,
+                        event_type="cross_chat_message",
+                        target_chats=target_chats,
+                        priority=1,
+                        timestamp=message_data["timestamp"],
+                        metadata={"stored_in_redis": True}
+                    )
+                    
+                    # Store in Redis (async operation in background)
+                    def store_in_redis():
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(
+                                self.real_time_handler.store_cross_chat_message(event)
+                            )
+                            logger.info(f"Message stored in Redis: {message_data['message_id']}")
+                        except Exception as e:
+                            logger.warning(f"Redis storage failed: {e}")
+                    
+                    # Start Redis storage in background thread
+                    redis_thread = threading.Thread(target=store_in_redis, daemon=True)
+                    redis_thread.start()
+                    
+            except Exception as e:
+                logger.warning(f"Redis integration not available: {e}")
+            
+            # Keep only last 100 messages
+            if len(self._cross_chat_messages) > 100:
+                self._cross_chat_messages = self._cross_chat_messages[-100:]
+            
+            logger.info(f"Message stored with ID: {message_data['message_id']}")
+            
             return {
                 "success": True,
                 "message": "Message broadcast successfully",
@@ -160,7 +220,7 @@ class AgentSystem:
                 "content": content,
                 "target_chats": target_chats,
                 "broadcast_count": len(target_chats),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": message_data["timestamp"]
             }
         except Exception as e:
             logger.error(f"Error broadcasting message: {e}")
@@ -174,41 +234,27 @@ class AgentSystem:
         try:
             logger.info(f"Retrieving cross-chat messages for chat: {chat_id or 'all'}")
             
-            # This will be implemented with the real-time handler
-            # For now, return simulation data
+            # Get messages from memory storage
+            if not hasattr(self, '_cross_chat_messages'):
+                self._cross_chat_messages = []
+            
+            messages = self._cross_chat_messages
+            
+            # Filter by chat_id if specified
             if chat_id:
-                return {
-                    "success": True,
-                    "chat_id": chat_id,
-                    "messages": [
-                        {
-                            "message_id": "msg_001",
-                            "source_chat": "dev_team",
-                            "source_agent": "coordinator",
-                            "content": "🚀 System-wide announcement: Development sprint starting tomorrow at 9 AM!",
-                            "timestamp": datetime.now().isoformat(),
-                            "target_chats": ["all"]
-                        }
-                    ],
-                    "message_count": 1,
-                    "timestamp": datetime.now().isoformat()
-                }
-            else:
-                return {
-                    "success": True,
-                    "messages": [
-                        {
-                            "message_id": "msg_001",
-                            "source_chat": "dev_team",
-                            "source_agent": "coordinator",
-                            "content": "🚀 System-wide announcement: Development sprint starting tomorrow at 9 AM!",
-                            "timestamp": datetime.now().isoformat(),
-                            "target_chats": ["all"]
-                        }
-                    ],
-                    "total_messages": 1,
-                    "timestamp": datetime.now().isoformat()
-                }
+                messages = [msg for msg in messages if msg['source_chat'] == chat_id]
+            
+            # Apply limit
+            messages = messages[-limit:] if len(messages) > limit else messages
+            
+            return {
+                "success": True,
+                "chat_id": chat_id,
+                "messages": messages,
+                "message_count": len(messages),
+                "total_messages": len(self._cross_chat_messages),
+                "timestamp": datetime.now().isoformat()
+            }
                 
         except Exception as e:
             logger.error(f"Error retrieving cross-chat messages: {e}")
@@ -222,23 +268,30 @@ class AgentSystem:
         try:
             logger.info(f"Searching cross-chat messages for: '{query}' in chat: {chat_id or 'all'}")
             
-            # This will be implemented with the real-time handler
-            # For now, return simulation data
+            # Get messages from memory storage
+            if not hasattr(self, '_cross_chat_messages'):
+                self._cross_chat_messages = []
+            
+            messages = self._cross_chat_messages
+            
+            # Filter by chat_id if specified
+            if chat_id:
+                messages = [msg for msg in messages if msg['source_chat'] == chat_id]
+            
+            # Search by content
+            query_lower = query.lower()
+            results = [msg for msg in messages if query_lower in msg['content'].lower()]
+            
+            # Apply limit
+            results = results[:limit]
+            
             return {
                 "success": True,
                 "query": query,
                 "chat_id": chat_id,
-                "results": [
-                    {
-                        "message_id": "msg_001",
-                        "source_chat": "dev_team",
-                        "source_agent": "coordinator",
-                        "content": "🚀 System-wide announcement: Development sprint starting tomorrow at 9 AM!",
-                        "timestamp": datetime.now().isoformat(),
-                        "target_chats": ["all"]
-                    }
-                ],
-                "results_count": 1,
+                "results": results,
+                "result_count": len(results),
+                "total_messages": len(self._cross_chat_messages),
                 "timestamp": datetime.now().isoformat()
             }
                 
