@@ -280,6 +280,8 @@ class AgileProject:
     burndown_data: List[Dict[str, Any]] = field(default_factory=list)
     team_members: List[str] = field(default_factory=list)
     status: str = "planning"
+    total_story_points: int = 0
+    completed_story_points: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
     
@@ -337,6 +339,72 @@ class DocumentationArtifact:
             "metadata": self.metadata,
             "embedding": self.embedding
         }
+
+
+@dataclass
+class TeamMember:
+    """Team member information."""
+    member_id: str
+    name: str
+    role: str
+    email: str
+    skills: List[str]
+    availability: float  # 0.0 to 1.0
+    created_at: str
+    updated_at: str
+
+
+@dataclass
+class UserStory:
+    """User story information."""
+    story_id: str
+    project_id: str
+    title: str
+    description: str
+    acceptance_criteria: List[str]
+    story_points: int
+    priority: str  # "low", "medium", "high", "critical"
+    epic: Optional[str]
+    status: str  # "backlog", "planned", "in_progress", "completed"
+    created_at: str
+    assigned_to: Optional[str]
+    sprint_id: Optional[str]
+    estimated_hours: Optional[float]
+    actual_hours: Optional[float]
+    completed_at: Optional[str]
+
+
+@dataclass
+class Sprint:
+    """Sprint information."""
+    sprint_id: str
+    project_id: str
+    name: str
+    start_date: str
+    end_date: str
+    goal: str
+    status: str  # "planning", "active", "completed"
+    planned_stories: List[str]
+    completed_stories: List[str]
+    total_story_points: int
+    completed_story_points: int
+    team_velocity: float
+
+
+@dataclass
+class Task:
+    """Task information."""
+    task_id: str
+    story_id: str
+    title: str
+    description: str
+    status: str  # "todo", "in_progress", "review", "done"
+    assigned_to: str
+    estimated_hours: float
+    actual_hours: Optional[float]
+    created_at: str
+    updated_at: str
+    completed_at: Optional[str]
 
 
 # Collection configuration for Qdrant

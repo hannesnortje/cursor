@@ -331,24 +331,139 @@ class AgentSystem:
                 "error": str(e)
             }
     
-    def get_project_status(self) -> Dict[str, Any]:
-        """Get current project and system status."""
+
+
+    def create_agile_project(self, project_name: str, project_type: str = "scrum",
+                           sprint_length: int = None, team_size: int = 5) -> Dict[str, Any]:
+        """Create a new agile project."""
         try:
-            return {
-                "success": True,
-                "system_health": self.get_system_health(),
-                "projects": self.projects,
-                "available_tools": [
-                    "start_project",
-                    "chat_with_coordinator", 
-                    "get_project_status",
-                    "add_numbers",
-                    "reverse_text"
-                ],
-                "timestamp": datetime.now().isoformat()
-            }
+            # Get or create Agile Agent
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.create_agile_project(project_name, project_type, sprint_length, team_size)
+        except Exception as e:
+            logger.error(f"Error creating agile project: {e}")
+            return {"success": False, "error": str(e)}
+
+    def create_user_story(self, project_id: str, title: str, description: str,
+                         acceptance_criteria: List[str], story_points: int = None,
+                         priority: str = "medium", epic: str = None) -> Dict[str, Any]:
+        """Create a new user story."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.create_user_story(project_id, title, description, 
+                                               acceptance_criteria, story_points, priority, epic)
+        except Exception as e:
+            logger.error(f"Error creating user story: {e}")
+            return {"success": False, "error": str(e)}
+
+    def create_sprint(self, project_id: str, sprint_name: str, start_date: str = None,
+                     end_date: str = None, goal: str = None) -> Dict[str, Any]:
+        """Create a new sprint."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.create_sprint(project_id, sprint_name, start_date, end_date, goal)
+        except Exception as e:
+            logger.error(f"Error creating sprint: {e}")
+            return {"success": False, "error": str(e)}
+
+    def plan_sprint(self, sprint_id: str, story_ids: List[str]) -> Dict[str, Any]:
+        """Plan a sprint by assigning user stories."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.plan_sprint(sprint_id, story_ids)
+        except Exception as e:
+            logger.error(f"Error planning sprint: {e}")
+            return {"success": False, "error": str(e)}
+
+    def complete_user_story(self, story_id: str, actual_hours: float = None) -> Dict[str, Any]:
+        """Mark a user story as completed."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.complete_user_story(story_id, actual_hours)
+        except Exception as e:
+            logger.error(f"Error completing user story: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_project_status(self, project_id: str) -> Dict[str, Any]:
+        """Get comprehensive project status and metrics."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.get_project_status(project_id)
         except Exception as e:
             logger.error(f"Error getting project status: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_sprint_burndown(self, sprint_id: str) -> Dict[str, Any]:
+        """Generate burndown chart data for a sprint."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.get_sprint_burndown(sprint_id)
+        except Exception as e:
+            logger.error(f"Error generating burndown data: {e}")
+            return {"success": False, "error": str(e)}
+
+    def calculate_team_velocity(self, project_id: str, sprint_count: int = None) -> Dict[str, Any]:
+        """Calculate team velocity based on completed sprints."""
+        try:
+            agile_agent = self._get_or_create_agile_agent()
+            return agile_agent.calculate_team_velocity(project_id, sprint_count)
+        except Exception as e:
+            logger.error(f"Error calculating team velocity: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _get_or_create_agile_agent(self):
+        """Get or create an Agile Agent instance."""
+        # Check if we already have an Agile Agent
+        for agent in self.agents.values():
+            if hasattr(agent, 'name') and agent.name == "Agile Agent":
+                return agent
+        
+        # Create new Agile Agent if none exists
+        try:
+            from src.agents.specialized.agile_agent import AgileAgent
+            agile_agent = AgileAgent()
+            self.register_agent(agile_agent)
+            logger.info("Created new Agile Agent")
+            return agile_agent
+        except ImportError as e:
+            logger.error(f"Could not import AgileAgent: {e}")
+            raise
+
+    def register_agent(self, agent):
+        """Register a new agent in the system."""
+        if hasattr(agent, 'agent_id'):
+            self.agents[agent.agent_id] = agent
+            logger.info(f"Registered agent: {agent.name} ({agent.agent_id})")
+        else:
+            logger.warning(f"Agent {agent} missing agent_id, cannot register")
+    
+    def list_agents(self) -> Dict[str, Any]:
+        """List all registered agents and their data."""
+        try:
+            agent_info = {}
+            for agent_id, agent in self.agents.items():
+                agent_info[agent_id] = {
+                    "name": agent.name,
+                    "type": agent.agent_type.value if hasattr(agent, 'agent_type') else "unknown",
+                    "status": agent.status.value if hasattr(agent, 'status') else "unknown"
+                }
+                
+                # Add Agile Agent specific data
+                if hasattr(agent, 'name') and agent.name == "Agile Agent":
+                    if hasattr(agent, 'agile_projects'):
+                        agent_info[agent_id]["agile_projects"] = len(agent.agile_projects)
+                        agent_info[agent_id]["project_ids"] = list(agent.agile_projects.keys())
+                    if hasattr(agent, 'user_stories'):
+                        agent_info[agent_id]["user_stories"] = len(agent.user_stories)
+                        agent_info[agent_id]["story_ids"] = list(agent.user_stories.keys())
+            
+            return {
+                "success": True,
+                "total_agents": len(self.agents),
+                "agents": agent_info
+            }
+        except Exception as e:
+            logger.error(f"Error listing agents: {e}")
             return {
                 "success": False,
                 "error": str(e)
@@ -438,14 +553,7 @@ def main():
                             "required": ["message"]
                         }
                     },
-                    {
-                        "name": "get_project_status",
-                        "description": "Get current project and system status",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {}
-                        }
-                    },
+
                     # Phase 4: Communication System Tools
                     {
                         "name": "start_communication_system",
@@ -489,6 +597,137 @@ def main():
                                 "target_chats": {"type": "array", "items": {"type": "string"}}
                             },
                             "required": ["source_chat", "source_agent", "content", "target_chats"]
+                        }
+                    },
+                    # Phase 4.3: Message Queue Integration Tools
+                    {
+                        "name": "get_cross_chat_messages",
+                        "description": "Get cross-chat messages for a specific chat or all chats",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "chat_id": {"type": "string"},
+                                "limit": {"type": "integer"}
+                            },
+                            "required": []
+                        }
+                    },
+                    {
+                        "name": "search_cross_chat_messages",
+                        "description": "Search cross-chat messages by content",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string"},
+                                "chat_id": {"type": "string"},
+                                "limit": {"type": "integer"}
+                            },
+                            "required": ["query"]
+                        }
+                    },
+                    # New Agile Agent Tools
+                    {
+                        "name": "create_agile_project",
+                        "description": "Create a new agile project",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_name": {"type": "string"},
+                                "project_type": {"type": "string", "default": "scrum"},
+                                "sprint_length": {"type": "integer"},
+                                "team_size": {"type": "integer", "default": 5}
+                            },
+                            "required": ["project_name"]
+                        }
+                    },
+                    {
+                        "name": "create_user_story",
+                        "description": "Create a new user story in an agile project",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string"},
+                                "title": {"type": "string"},
+                                "description": {"type": "string"},
+                                "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+                                "story_points": {"type": "integer"},
+                                "priority": {"type": "string", "default": "medium"},
+                                "epic": {"type": "string"}
+                            },
+                            "required": ["project_id", "title", "description", "acceptance_criteria"]
+                        }
+                    },
+                    {
+                        "name": "create_sprint",
+                        "description": "Create a new sprint in an agile project",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string"},
+                                "sprint_name": {"type": "string"},
+                                "start_date": {"type": "string"},
+                                "end_date": {"type": "string"},
+                                "goal": {"type": "string"}
+                            },
+                            "required": ["project_id", "sprint_name"]
+                        }
+                    },
+                    {
+                        "name": "plan_sprint",
+                        "description": "Plan a sprint by assigning user stories",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "sprint_id": {"type": "string"},
+                                "story_ids": {"type": "array", "items": {"type": "string"}}
+                            },
+                            "required": ["sprint_id", "story_ids"]
+                        }
+                    },
+                    {
+                        "name": "complete_user_story",
+                        "description": "Mark a user story as completed",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "story_id": {"type": "string"},
+                                "actual_hours": {"type": "number"}
+                            },
+                            "required": ["story_id"]
+                        }
+                    },
+                    {
+                        "name": "get_project_status",
+                        "description": "Get comprehensive project status and metrics for an agile project",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string"}
+                            },
+                            "required": ["project_id"]
+                        }
+                    },
+                    {
+                        "name": "get_sprint_burndown",
+                        "description": "Generate burndown chart data for a sprint",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "sprint_id": {"type": "string"}
+                            },
+                            "required": ["sprint_id"]
+                        }
+                    },
+                    {
+                        "name": "calculate_team_velocity",
+                        "description": "Calculate team velocity based on completed sprints",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string"},
+                                "sprint_count": {"type": "integer"}
+                            },
+                            "required": ["project_id"]
                         }
                     }
                 ]
@@ -567,14 +806,7 @@ def main():
                                 "required": ["message"]
                             }
                         },
-                        {
-                            "name": "get_project_status",
-                            "description": "Get current project and system status",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
-                            }
-                        },
+
                         # Phase 4: Communication System Tools
                         {
                             "name": "start_communication_system",
@@ -644,6 +876,111 @@ def main():
                                     "limit": {"type": "integer"}
                                 },
                                 "required": ["query"]
+                            }
+                        },
+                        # New Agile Agent Tools
+                        {
+                            "name": "create_agile_project",
+                            "description": "Create a new agile project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_name": {"type": "string"},
+                                    "project_type": {"type": "string", "default": "scrum"},
+                                    "sprint_length": {"type": "integer"},
+                                    "team_size": {"type": "integer", "default": 5}
+                                },
+                                "required": ["project_name"]
+                            }
+                        },
+                        {
+                            "name": "create_user_story",
+                            "description": "Create a new user story in an agile project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+                                    "story_points": {"type": "integer"},
+                                    "priority": {"type": "string", "default": "medium"},
+                                    "epic": {"type": "string"}
+                                },
+                                "required": ["project_id", "title", "description", "acceptance_criteria"]
+                            }
+                        },
+                        {
+                            "name": "create_sprint",
+                            "description": "Create a new sprint in an agile project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string"},
+                                    "sprint_name": {"type": "string"},
+                                    "start_date": {"type": "string"},
+                                    "end_date": {"type": "string"},
+                                    "goal": {"type": "string"}
+                                },
+                                "required": ["project_id", "sprint_name"]
+                            }
+                        },
+                        {
+                            "name": "plan_sprint",
+                            "description": "Plan a sprint by assigning user stories",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "sprint_id": {"type": "string"},
+                                    "story_ids": {"type": "array", "items": {"type": "string"}}
+                                },
+                                "required": ["sprint_id", "story_ids"]
+                            }
+                        },
+                        {
+                            "name": "complete_user_story",
+                            "description": "Mark a user story as completed",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "story_id": {"type": "string"},
+                                    "actual_hours": {"type": "number"}
+                                },
+                                "required": ["story_id"]
+                            }
+                        },
+                        {
+                            "name": "get_project_status",
+                            "description": "Get comprehensive project status and metrics for an agile project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "get_sprint_burndown",
+                            "description": "Generate burndown chart data for a sprint",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "sprint_id": {"type": "string"}
+                                },
+                                "required": ["sprint_id"]
+                            }
+                        },
+                        {
+                            "name": "calculate_team_velocity",
+                            "description": "Calculate team velocity based on completed sprints",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string"},
+                                    "sprint_count": {"type": "integer"}
+                                },
+                                "required": ["project_id"]
                             }
                         }
                     ]
@@ -717,18 +1054,7 @@ def main():
                                 "message": f"Coordinator chat failed: {result['error']}"
                             })
                 
-                elif tool_name == "get_project_status":
-                    result = agent_system.get_project_status()
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": "Project status retrieved successfully"}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get project status: {result['error']}"
-                        })
+
                 
                 # Phase 4: Communication System Tools
                 elif tool_name == "start_communication_system":
@@ -844,7 +1170,203 @@ def main():
                                 "code": -32603,
                                 "message": f"Failed to search cross-chat messages: {result['error']}"
                             })
-                    
+                
+                # New Agile Agent Tools
+                elif tool_name == "create_agile_project":
+                    project_name = arguments.get("project_name", "")
+                    project_type = arguments.get("project_type", "scrum")
+                    sprint_length = arguments.get("sprint_length")
+                    team_size = arguments.get("team_size", 5)
+
+                    if not project_name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_name is required"
+                        })
+                    else:
+                        result = agent_system.create_agile_project(project_name, project_type, sprint_length, team_size)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create agile project: {result['error']}"
+                            })
+                
+                elif tool_name == "create_user_story":
+                    project_id = arguments.get("project_id", "")
+                    title = arguments.get("title", "")
+                    description = arguments.get("description", "")
+                    acceptance_criteria = arguments.get("acceptance_criteria", [])
+                    story_points = arguments.get("story_points")
+                    priority = arguments.get("priority", "medium")
+                    epic = arguments.get("epic")
+
+                    if not project_id or not title or not description or not acceptance_criteria:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_id, title, description, and acceptance_criteria are required"
+                        })
+                    else:
+                        result = agent_system.create_user_story(project_id, title, description, acceptance_criteria, story_points, priority, epic)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create user story: {result['error']}"
+                            })
+                
+                elif tool_name == "create_sprint":
+                    project_id = arguments.get("project_id", "")
+                    sprint_name = arguments.get("sprint_name", "")
+                    start_date = arguments.get("start_date")
+                    end_date = arguments.get("end_date")
+                    goal = arguments.get("goal")
+
+                    if not project_id or not sprint_name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_id and sprint_name are required"
+                        })
+                    else:
+                        result = agent_system.create_sprint(project_id, sprint_name, start_date, end_date, goal)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create sprint: {result['error']}"
+                            })
+                
+                elif tool_name == "plan_sprint":
+                    sprint_id = arguments.get("sprint_id", "")
+                    story_ids = arguments.get("story_ids", [])
+
+                    if not sprint_id or not story_ids:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "sprint_id and story_ids are required"
+                        })
+                    else:
+                        result = agent_system.plan_sprint(sprint_id, story_ids)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to plan sprint: {result['error']}"
+                            })
+                
+                elif tool_name == "complete_user_story":
+                    story_id = arguments.get("story_id", "")
+                    actual_hours = arguments.get("actual_hours")
+
+                    if not story_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "story_id is required"
+                        })
+                    else:
+                        result = agent_system.complete_user_story(story_id, actual_hours)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to complete user story: {result['error']}"
+                            })
+                
+                elif tool_name == "get_project_status":
+                    project_id = arguments.get("project_id", "")
+                    if not project_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_id is required"
+                        })
+                    else:
+                        result = agent_system.get_project_status(project_id)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to get project status: {result['error']}"
+                            })
+                
+                elif tool_name == "get_sprint_burndown":
+                    sprint_id = arguments.get("sprint_id", "")
+                    if not sprint_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "sprint_id is required"
+                        })
+                    else:
+                        result = agent_system.get_sprint_burndown(sprint_id)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to get sprint burndown: {result['error']}"
+                            })
+                
+                elif tool_name == "calculate_team_velocity":
+                    project_id = arguments.get("project_id", "")
+                    sprint_count = arguments.get("sprint_count")
+
+                    if not project_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_id is required"
+                        })
+                    else:
+                        result = agent_system.calculate_team_velocity(project_id, sprint_count)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to calculate team velocity: {result['error']}"
+                            })
+                
+                elif tool_name == "list_agents":
+                    result = agent_system.list_agents()
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Retrieved {result['total_agents']} agents"}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list agents: {result['error']}"
+                        })
+                
                 else:
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
                     
