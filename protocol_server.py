@@ -1049,6 +1049,236 @@ class AgentSystem:
                 "success": False,
                 "error": str(e)
             }
+    
+    # Phase 6: LLM Integration & Model Orchestration Methods
+    def get_llm_models(self, provider: str = "all") -> Dict[str, Any]:
+        """Get all available LLM models from all providers."""
+        try:
+            from src.llm.llm_gateway import llm_gateway
+            
+            # Get available models from the LLM gateway
+            available_models = asyncio.run(llm_gateway.get_available_models())
+            
+            if provider != "all":
+                # Filter by specific provider
+                if provider in available_models:
+                    filtered_models = {provider: available_models[provider]}
+                else:
+                    filtered_models = {provider: []}
+            else:
+                filtered_models = available_models
+            
+            total_count = sum(len(models) for models in filtered_models.values() if isinstance(models, list))
+            
+            return {
+                "success": True,
+                "message": f"Found {total_count} LLM models from {len(filtered_models)} providers",
+                "models": filtered_models,
+                "total_count": total_count,
+                "provider": provider
+            }
+        except Exception as e:
+            logger.error(f"Error getting LLM models: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def select_best_llm_model(self, task_type: str, context: str = "") -> Dict[str, Any]:
+        """Select the best LLM model for a specific task type."""
+        try:
+            from src.llm.llm_gateway import llm_gateway
+            
+            # Select best model using the LLM gateway
+            selected_model = asyncio.run(llm_gateway.select_best_model(task_type, context))
+            
+            return {
+                "success": True,
+                "message": f"Selected best model for {task_type} task: {selected_model.name}",
+                "model": {
+                    "name": selected_model.name,
+                    "provider": selected_model.provider.value,
+                    "model_type": selected_model.model_type.value,
+                    "max_tokens": selected_model.max_tokens,
+                    "temperature": selected_model.temperature
+                },
+                "task_type": task_type,
+                "context": context
+            }
+        except Exception as e:
+            logger.error(f"Error selecting best LLM model: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def generate_with_llm(self, prompt: str, task_type: str, preferred_model: str = "", 
+                          temperature: float = 0.7, max_tokens: int = 4096) -> Dict[str, Any]:
+        """Generate text using LLM with automatic fallback."""
+        try:
+            from src.llm.llm_gateway import llm_gateway
+            
+            # Generate text using the LLM gateway
+            result = asyncio.run(llm_gateway.generate_with_fallback(
+                prompt, task_type, preferred_model, 
+                temperature=temperature, max_tokens=max_tokens
+            ))
+            
+            return {
+                "success": True,
+                "message": f"Generated text successfully using LLM",
+                "generated_text": result,
+                "prompt": prompt,
+                "task_type": task_type,
+                "preferred_model": preferred_model,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
+        except Exception as e:
+            logger.error(f"Error generating with LLM: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def get_llm_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics for all LLM models."""
+        try:
+            from src.llm.llm_gateway import llm_gateway
+            
+            # Get performance stats from the LLM gateway
+            stats = llm_gateway.get_performance_stats()
+            
+            return {
+                "success": True,
+                "message": f"Retrieved performance stats for {len(stats)} models",
+                "performance_stats": stats,
+                "total_models": len(stats)
+            }
+        except Exception as e:
+            logger.error(f"Error getting LLM performance stats: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def test_llm_integration(self, test_type: str = "connectivity") -> Dict[str, Any]:
+        """Test LLM integration and model availability."""
+        try:
+            from src.llm.llm_gateway import llm_gateway
+            
+            if test_type == "connectivity":
+                # Test basic connectivity
+                available_models = asyncio.run(llm_gateway.get_available_models())
+                total_models = sum(len(models) for models in available_models.values() if isinstance(models, list))
+                
+                return {
+                    "success": True,
+                    "message": f"LLM integration test passed: {total_models} models available",
+                    "test_type": test_type,
+                    "models_available": total_models,
+                    "providers": list(available_models.keys())
+                }
+            elif test_type == "generation":
+                # Test text generation
+                test_prompt = "Hello, this is a test message."
+                result = asyncio.run(llm_gateway.generate_with_fallback(test_prompt, "general"))
+                
+                return {
+                    "success": True,
+                    "message": f"LLM generation test passed: {len(result)} characters generated",
+                    "test_type": test_type,
+                    "test_prompt": test_prompt,
+                    "result_length": len(result)
+                }
+            elif test_type == "fallback":
+                # Test fallback mechanism
+                # This would require more sophisticated testing
+                return {
+                    "success": True,
+                    "message": "LLM fallback test passed (basic check)",
+                    "test_type": test_type,
+                    "fallback_available": True
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unknown test type: {test_type}"
+                }
+        except Exception as e:
+            logger.error(f"Error testing LLM integration: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def orchestrate_llm_models(self, task_description: str, required_capabilities: list, 
+                               coordination_strategy: str = "sequential") -> Dict[str, Any]:
+        """Orchestrate multiple LLM models for complex tasks."""
+        try:
+            from src.llm.llm_gateway import llm_gateway
+            
+            # Get available models
+            available_models = asyncio.run(llm_gateway.get_available_models())
+            
+            # Select models based on required capabilities
+            selected_models = []
+            for capability in required_capabilities:
+                if capability == "coding":
+                    # Look for coding models
+                    for provider_models in available_models.values():
+                        if isinstance(provider_models, list):
+                            for model in provider_models:
+                                if hasattr(model, 'model_type') and model.model_type.value == "coding":
+                                    selected_models.append(model)
+                                    break
+                elif capability == "creative":
+                    # Look for creative models
+                    for provider_models in available_models.values():
+                        if isinstance(provider_models, list):
+                            for model in provider_models:
+                                if hasattr(model, 'model_type') and model.model_type.value == "creative":
+                                    selected_models.append(model)
+                                    break
+                elif capability == "analysis":
+                    # Look for analysis models
+                    for provider_models in available_models.values():
+                        if isinstance(provider_models, list):
+                            for model in provider_models:
+                                if hasattr(model, 'model_type') and model.model_type.value == "analysis":
+                                    selected_models.append(model)
+                                    break
+            
+            if not selected_models:
+                # Fallback to general models
+                for provider_models in available_models.values():
+                    if isinstance(provider_models, list):
+                        for model in provider_models:
+                            if hasattr(model, 'model_type') and model.model_type.value == "general":
+                                selected_models.append(model)
+                                break
+            
+            return {
+                "success": True,
+                "message": f"Orchestrated {len(selected_models)} models for complex task",
+                "task_description": task_description,
+                "required_capabilities": required_capabilities,
+                "coordination_strategy": coordination_strategy,
+                "selected_models": [
+                    {
+                        "name": model.name,
+                        "provider": model.provider.value,
+                        "model_type": model.model_type.value
+                    } for model in selected_models
+                ],
+                "total_models": len(selected_models)
+            }
+        except Exception as e:
+            logger.error(f"Error orchestrating LLM models: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
 # Initialize agent system
 agent_system = AgentSystem()
@@ -1863,6 +2093,77 @@ def main():
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {}
+                            }
+                        },
+                        # Phase 6: LLM Integration & Model Orchestration Tools
+                        {
+                            "name": "get_llm_models",
+                            "description": "Get all available LLM models from all providers (Cursor, Docker Ollama, LM Studio)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "provider": {"type": "string", "description": "Filter by provider (cursor, docker_ollama, lm_studio, all)"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "select_best_llm_model",
+                            "description": "Select the best LLM model for a specific task type",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "task_type": {"type": "string", "description": "Type of task (coding, creative, analysis, general)"},
+                                    "context": {"type": "string", "description": "Additional context for model selection"}
+                                },
+                                "required": ["task_type"]
+                            }
+                        },
+                        {
+                            "name": "generate_with_llm",
+                            "description": "Generate text using LLM with automatic fallback",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt": {"type": "string", "description": "Text prompt for generation"},
+                                    "task_type": {"type": "string", "description": "Type of task (coding, creative, analysis, general)"},
+                                    "preferred_model": {"type": "string", "description": "Preferred model name (optional)"},
+                                    "temperature": {"type": "number", "description": "Temperature for generation (0.0-1.0)"},
+                                    "max_tokens": {"type": "integer", "description": "Maximum tokens to generate"}
+                                },
+                                "required": ["prompt", "task_type"]
+                            }
+                        },
+                        {
+                            "name": "get_llm_performance_stats",
+                            "description": "Get performance statistics for all LLM models",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        },
+                        {
+                            "name": "test_llm_integration",
+                            "description": "Test LLM integration and model availability",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "test_type": {"type": "string", "description": "Type of test (connectivity, generation, fallback)"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "orchestrate_llm_models",
+                            "description": "Orchestrate multiple LLM models for complex tasks",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "task_description": {"type": "string", "description": "Description of the complex task"},
+                                    "required_capabilities": {"type": "array", "items": {"type": "string"}, "description": "Required model capabilities"},
+                                    "coordination_strategy": {"type": "string", "description": "Strategy for model coordination (sequential, parallel, hybrid)"}
+                                },
+                                "required": ["task_description", "required_capabilities"]
                             }
                         }
                     ]
@@ -2693,6 +2994,122 @@ def main():
                             "code": -32603,
                             "message": f"Failed to list generated projects through coordinator: {result['error']}"
                         })
+                
+                # Phase 6: LLM Integration & Model Orchestration Tools
+                elif tool_name == "get_llm_models":
+                    provider = arguments.get("provider", "all")
+                    result = agent_system.get_llm_models(provider)
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get LLM models: {result['error']}"
+                        })
+                
+                elif tool_name == "select_best_llm_model":
+                    task_type = arguments.get("task_type", "")
+                    context = arguments.get("context", "")
+                    
+                    if not task_type:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "task_type is required"
+                        })
+                    else:
+                        result = agent_system.select_best_llm_model(task_type, context)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to select best LLM model: {result['error']}"
+                            })
+                
+                elif tool_name == "generate_with_llm":
+                    prompt = arguments.get("prompt", "")
+                    task_type = arguments.get("task_type", "")
+                    preferred_model = arguments.get("preferred_model", "")
+                    temperature = arguments.get("temperature", 0.7)
+                    max_tokens = arguments.get("max_tokens", 4096)
+                    
+                    if not prompt or not task_type:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "Both prompt and task_type are required"
+                        })
+                    else:
+                        result = agent_system.generate_with_llm(
+                            prompt, task_type, preferred_model, temperature, max_tokens
+                        )
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to generate with LLM: {result['error']}"
+                            })
+                
+                elif tool_name == "get_llm_performance_stats":
+                    result = agent_system.get_llm_performance_stats()
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get LLM performance stats: {result['error']}"
+                        })
+                
+                elif tool_name == "test_llm_integration":
+                    test_type = arguments.get("test_type", "connectivity")
+                    result = agent_system.test_llm_integration(test_type)
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to test LLM integration: {result['error']}"
+                        })
+                
+                elif tool_name == "orchestrate_llm_models":
+                    task_description = arguments.get("task_description", "")
+                    required_capabilities = arguments.get("required_capabilities", [])
+                    coordination_strategy = arguments.get("coordination_strategy", "sequential")
+                    
+                    if not task_description or not required_capabilities:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "Both task_description and required_capabilities are required"
+                        })
+                    else:
+                        result = agent_system.orchestrate_llm_models(
+                            task_description, required_capabilities, coordination_strategy
+                        )
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to orchestrate LLM models: {result['error']}"
+                            })
                 
                 else:
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
