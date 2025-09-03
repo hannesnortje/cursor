@@ -1065,12 +1065,42 @@ class AgentSystem:
                 # Skip non-provider keys like 'total_count'
                 if provider_name in ['cursor', 'docker_ollama', 'lm_studio']:
                     if isinstance(models, list):
-                        serializable_models[provider_name] = [
-                            model.to_dict() if hasattr(model, 'to_dict') else str(model)
-                            for model in models
-                        ]
+                        try:
+                            serializable_models[provider_name] = []
+                            for model in models:
+                                try:
+                                    if hasattr(model, 'to_dict') and callable(model.to_dict):
+                                        model_dict = model.to_dict()
+                                        serializable_models[provider_name].append(model_dict)
+                                    else:
+                                        # Fallback serialization
+                                        model_dict = {
+                                            "name": str(getattr(model, 'name', 'unknown')),
+                                            "provider": str(getattr(model, 'provider', 'unknown')),
+                                            "model_type": str(getattr(model, 'model_type', 'unknown')),
+                                            "max_tokens": getattr(model, 'max_tokens', 4096),
+                                            "temperature": getattr(model, 'temperature', 0.7),
+                                            "api_base": str(getattr(model, 'api_base', 'unknown')),
+                                            "is_available": getattr(model, 'is_available', True)
+                                        }
+                                        serializable_models[provider_name].append(model_dict)
+                                except Exception as model_error:
+                                    logger.warning(f"Error serializing model {getattr(model, 'name', 'unknown')}: {model_error}")
+                                    # Add basic model info as fallback
+                                    serializable_models[provider_name].append({
+                                        "name": str(getattr(model, 'name', 'unknown')),
+                                        "provider": "unknown",
+                                        "model_type": "unknown",
+                                        "max_tokens": 4096,
+                                        "temperature": 0.7,
+                                        "api_base": "unknown",
+                                        "is_available": True
+                                    })
+                        except Exception as list_error:
+                            logger.error(f"Error processing models list for {provider_name}: {list_error}")
+                            serializable_models[provider_name] = []
                     else:
-                        serializable_models[provider_name] = str(models)
+                        serializable_models[provider_name] = []
             
             if provider != "all":
                 # Filter by specific provider
