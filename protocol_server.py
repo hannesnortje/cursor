@@ -7,6 +7,17 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 import threading
 
+# Import the new Qdrant vector store system
+try:
+    from src.database import vector_store
+    QDRANT_AVAILABLE = True
+    logger = logging.getLogger("enhanced-mcp-server")
+    logger.info("Qdrant vector store integration available")
+except ImportError as e:
+    QDRANT_AVAILABLE = False
+    logger = logging.getLogger("enhanced-mcp-server")
+    logger.warning(f"Qdrant vector store not available: {e}")
+
 # Enhanced logging configuration
 logging.basicConfig(
     level=logging.INFO,
@@ -23,6 +34,16 @@ class AgentSystem:
         self.projects = {}
         self.system_status = "initializing"
         self.start_time = datetime.now()
+        
+        # Initialize vector store if available
+        self.vector_store = None
+        if QDRANT_AVAILABLE:
+            try:
+                self.vector_store = vector_store
+                logger.info("Vector store initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize vector store: {e}")
+                self.vector_store = None
     
     def get_system_health(self) -> Dict[str, Any]:
         """Get system health status."""
@@ -32,6 +53,10 @@ class AgentSystem:
             "uptime_seconds": uptime,
             "active_agents": len(self.agents),
             "active_projects": len(self.projects),
+            "vector_store": {
+                "available": self.vector_store is not None,
+                "status": "connected" if self.vector_store else "unavailable"
+            },
             "timestamp": datetime.now().isoformat()
         }
     
@@ -55,6 +80,45 @@ class AgentSystem:
             
             self.projects[project_id] = project
             self.system_status = "active"
+            
+            # Store project context in vector database if available
+            if self.vector_store:
+                try:
+                    from src.database.qdrant.vector_store import ProjectContext
+                    
+                    project_context = ProjectContext(
+                        id=f"proj_{project_id}",
+                        project_id=project_id,
+                        project_name=project_name,
+                        context_type="project_start",
+                        content=f"Project {project_name} started with {project_type} methodology",
+                        agent_id="system",
+                        timestamp=datetime.now(),
+                        metadata={
+                            "project_type": project_type,
+                            "pdca_phase": "plan",
+                            "status": "planning"
+                        }
+                    )
+                    
+                    # Store in vector database (async)
+                    def store_project_context():
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(
+                                self.vector_store.store_project_context(project_context)
+                            )
+                            logger.info(f"Project context stored in vector database: {project_id}")
+                        except Exception as e:
+                            logger.warning(f"Project context storage failed: {e}")
+                    
+                    # Start vector storage in background thread
+                    context_thread = threading.Thread(target=store_project_context, daemon=True)
+                    context_thread.start()
+                    
+                except Exception as e:
+                    logger.warning(f"Vector database project context storage failed: {e}")
             
             logger.info(f"Started new project: {project_name} ({project_type})")
             
@@ -270,10 +334,6 @@ class AgentSystem:
         try:
             logger.info(f"Broadcasting message from {source_agent} in {source_chat}")
             
-            # Store the message in memory for now
-            if not hasattr(self, '_cross_chat_messages'):
-                self._cross_chat_messages = []
-            
             import uuid
             from datetime import datetime
             
@@ -286,7 +346,48 @@ class AgentSystem:
                 "target_chats": target_chats
             }
             
-            # Store in memory (fallback)
+            # Store in vector database if available
+            if self.vector_store:
+                try:
+                    from src.database.qdrant.vector_store import ConversationPoint
+                    
+                    conversation_point = ConversationPoint(
+                        id=message_data["message_id"],
+                        session_id=source_chat,
+                        agent_id=source_agent,
+                        agent_type="agent",
+                        message=content,
+                        context=f"Cross-chat message to: {', '.join(target_chats)}",
+                        timestamp=datetime.now(),
+                        metadata={
+                            "message_type": "cross_chat",
+                            "target_chats": target_chats,
+                            "source_chat": source_chat
+                        }
+                    )
+                    
+                    # Store in vector database (async)
+                    def store_in_vector_db():
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(
+                                self.vector_store.store_conversation(conversation_point)
+                            )
+                            logger.info(f"Message stored in vector database: {message_data['message_id']}")
+                        except Exception as e:
+                            logger.warning(f"Vector database storage failed: {e}")
+                    
+                    # Start vector storage in background thread
+                    vector_thread = threading.Thread(target=store_in_vector_db, daemon=True)
+                    vector_thread.start()
+                    
+                except Exception as e:
+                    logger.warning(f"Vector database integration failed: {e}")
+            
+            # Fallback to in-memory storage
+            if not hasattr(self, '_cross_chat_messages'):
+                self._cross_chat_messages = []
             self._cross_chat_messages.append(message_data)
             
             # Try to store in Redis for persistence
@@ -334,6 +435,7 @@ class AgentSystem:
             return {
                 "success": True,
                 "message": "Message broadcast successfully",
+                "message_id": message_data["message_id"],
                 "source_chat": source_chat,
                 "source_agent": source_agent,
                 "content": content,
@@ -353,25 +455,55 @@ class AgentSystem:
         try:
             logger.info(f"Retrieving cross-chat messages for chat: {chat_id or 'all'}")
             
-            # Get messages from memory storage
-            if not hasattr(self, '_cross_chat_messages'):
-                self._cross_chat_messages = []
+            messages = []
             
-            messages = self._cross_chat_messages
+            # Try to get messages from vector database first
+            if self.vector_store:
+                try:
+                    # Get conversation history from vector store
+                    vector_messages = asyncio.run(
+                        self.vector_store.get_session_history(chat_id or "all", limit)
+                    )
+                    
+                    # Convert to our format
+                    for msg in vector_messages:
+                        messages.append({
+                            "message_id": msg.id,
+                            "source_chat": msg.session_id,
+                            "source_agent": msg.agent_id,
+                            "content": msg.message,
+                            "timestamp": msg.timestamp.isoformat(),
+                            "metadata": msg.metadata
+                        })
+                    
+                    logger.info(f"Retrieved {len(messages)} messages from vector database")
+                    
+                except Exception as e:
+                    logger.warning(f"Vector database retrieval failed: {e}")
             
-            # Filter by chat_id if specified
-            if chat_id:
-                messages = [msg for msg in messages if msg['source_chat'] == chat_id]
-            
-            # Apply limit
-            messages = messages[-limit:] if len(messages) > limit else messages
+            # Fallback to in-memory storage
+            if not messages:
+                if not hasattr(self, '_cross_chat_messages'):
+                    self._cross_chat_messages = []
+                
+                messages = self._cross_chat_messages
+                
+                # Filter by chat_id if specified
+                if chat_id:
+                    messages = [msg for msg in messages if msg['source_chat'] == chat_id]
+                
+                # Apply limit
+                messages = messages[-limit:] if len(messages) > limit else messages
+                
+                logger.info(f"Retrieved {len(messages)} messages from in-memory storage")
             
             return {
                 "success": True,
                 "chat_id": chat_id,
                 "messages": messages,
                 "message_count": len(messages),
-                "total_messages": len(self._cross_chat_messages),
+                "total_messages": len(messages),
+                "storage": "vector_database" if self.vector_store and messages else "in_memory",
                 "timestamp": datetime.now().isoformat()
             }
                 
@@ -387,22 +519,52 @@ class AgentSystem:
         try:
             logger.info(f"Searching cross-chat messages for: '{query}' in chat: {chat_id or 'all'}")
             
-            # Get messages from memory storage
-            if not hasattr(self, '_cross_chat_messages'):
-                self._cross_chat_messages = []
+            results = []
             
-            messages = self._cross_chat_messages
+            # Try to search in vector database first
+            if self.vector_store:
+                try:
+                    # Search conversations in vector store
+                    vector_results = asyncio.run(
+                        self.vector_store.search_conversations(query, chat_id, limit=limit)
+                    )
+                    
+                    # Convert to our format
+                    for msg in vector_results:
+                        results.append({
+                            "message_id": msg.id,
+                            "source_chat": msg.session_id,
+                            "source_agent": msg.agent_id,
+                            "content": msg.message,
+                            "timestamp": msg.timestamp.isoformat(),
+                            "metadata": msg.metadata,
+                            "context": msg.context
+                        })
+                    
+                    logger.info(f"Found {len(results)} results in vector database")
+                    
+                except Exception as e:
+                    logger.warning(f"Vector database search failed: {e}")
             
-            # Filter by chat_id if specified
-            if chat_id:
-                messages = [msg for msg in messages if msg['source_chat'] == chat_id]
-            
-            # Search by content
-            query_lower = query.lower()
-            results = [msg for msg in messages if query_lower in msg['content'].lower()]
-            
-            # Apply limit
-            results = results[:limit]
+            # Fallback to in-memory search
+            if not results:
+                if not hasattr(self, '_cross_chat_messages'):
+                    self._cross_chat_messages = []
+                
+                messages = self._cross_chat_messages
+                
+                # Filter by chat_id if specified
+                if chat_id:
+                    messages = [msg for msg in messages if msg['source_chat'] == chat_id]
+                
+                # Search by content
+                query_lower = query.lower()
+                results = [msg for msg in messages if query_lower in msg['content'].lower()]
+                
+                # Apply limit
+                results = results[:limit]
+                
+                logger.info(f"Found {len(results)} results in in-memory storage")
             
             return {
                 "success": True,
@@ -410,7 +572,8 @@ class AgentSystem:
                 "chat_id": chat_id,
                 "results": results,
                 "result_count": len(results),
-                "total_messages": len(self._cross_chat_messages),
+                "total_messages": len(results),
+                "storage": "vector_database" if self.vector_store and results else "in_memory",
                 "timestamp": datetime.now().isoformat()
             }
                 
@@ -424,6 +587,31 @@ class AgentSystem:
     def get_communication_status(self) -> Dict[str, Any]:
         """Get communication system status."""
         try:
+            vector_stats = {}
+            if self.vector_store:
+                try:
+                    # Get vector store statistics
+                    stats = asyncio.run(self.vector_store.get_collection_stats())
+                    vector_stats = {
+                        "status": "connected",
+                        "available": True,
+                        "type": "Qdrant",
+                        "collections": stats
+                    }
+                except Exception as e:
+                    vector_stats = {
+                        "status": "error",
+                        "available": False,
+                        "type": "Qdrant",
+                        "error": str(e)
+                    }
+            else:
+                vector_stats = {
+                    "status": "unavailable",
+                    "available": False,
+                    "type": "None"
+                }
+            
             return {
                 "success": True,
                 "websocket_server": {
@@ -441,6 +629,7 @@ class AgentSystem:
                     "active_sessions": 0,
                     "total_messages": 0
                 },
+                "vector_store": vector_stats,
                 "timestamp": datetime.now().isoformat()
             }
         except Exception as e:
