@@ -99,23 +99,19 @@ class CursorLLMProvider:
         """Try to dynamically discover models from Cursor."""
         models = []
         try:
-            # This would integrate with Cursor's actual model discovery
-            # For example, checking environment variables, config files, or API endpoints
+            # Since we're working in Cursor, we should include all potential models
+            # Cursor's built-in integration will determine actual availability
+            # Environment variables are not the limiting factor for Cursor's models
             
-            # Check for common environment indicators
-            import os
+            # Include all potential OpenAI models
+            openai_models = await self._detect_openai_models()
+            models.extend(openai_models)
             
-            # Check if we can detect OpenAI models
-            if os.environ.get('OPENAI_API_KEY') or os.environ.get('CURSOR_OPENAI_ENABLED'):
-                openai_models = await self._detect_openai_models()
-                models.extend(openai_models)
+            # Include all potential Anthropic models
+            anthropic_models = await self._detect_anthropic_models()
+            models.extend(anthropic_models)
             
-            # Check if we can detect Anthropic models
-            if os.environ.get('ANTHROPIC_API_KEY') or os.environ.get('CURSOR_ANTHROPIC_ENABLED'):
-                anthropic_models = await self._detect_anthropic_models()
-                models.extend(anthropic_models)
-            
-            # Check for other providers
+            # Include all potential other provider models
             other_models = await self._detect_other_providers()
             models.extend(other_models)
             
