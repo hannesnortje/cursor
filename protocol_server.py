@@ -1779,6 +1779,175 @@ def main():
                             "message": f"Failed to list agents: {result['error']}"
                         })
                 
+                # Coordinator-based Project Generation Tools
+                elif tool_name == "coordinator_create_project_from_template":
+                    template_id = arguments.get("template_id", "")
+                    project_name = arguments.get("project_name", "")
+                    target_path = arguments.get("target_path", ".")
+                    customizations = arguments.get("customizations", {})
+                    
+                    if not template_id or not project_name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "template_id and project_name are required"
+                        })
+                    else:
+                        # Use the Coordinator Agent through chat_with_coordinator
+                        message = {
+                            "type": "project_generation",
+                            "action": "create_from_template",
+                            "template_id": template_id,
+                            "project_name": project_name,
+                            "target_path": target_path,
+                            "customizations": customizations
+                        }
+                        
+                        result = agent_system.chat_with_coordinator(json.dumps(message))
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["response"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create project through coordinator: {result['error']}"
+                            })
+                
+                elif tool_name == "coordinator_create_custom_project":
+                    project_name = arguments.get("project_name", "")
+                    language = arguments.get("language", "")
+                    custom_structure = arguments.get("custom_structure", {})
+                    target_path = arguments.get("target_path", ".")
+                    
+                    if not project_name or not language:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_name and language are required"
+                        })
+                    else:
+                        # Use the Coordinator Agent through chat_with_coordinator
+                        message = {
+                            "type": "project_generation",
+                            "action": "create_custom",
+                            "project_name": project_name,
+                            "language": language,
+                            "custom_structure": custom_structure,
+                            "target_path": target_path
+                        }
+                        
+                        result = agent_system.chat_with_coordinator(json.dumps(message))
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["response"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create custom project through coordinator: {result['error']}"
+                            })
+                
+                elif tool_name == "coordinator_list_project_templates":
+                    language = arguments.get("language")
+                    category = arguments.get("category")
+                    
+                    # Use the Coordinator Agent through chat_with_coordinator
+                    message = {
+                        "type": "project_generation",
+                        "action": "list_templates",
+                        "language": language,
+                            "category": category
+                    }
+                    
+                    result = agent_system.chat_with_coordinator(json.dumps(message))
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["response"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list templates through coordinator: {result['error']}"
+                        })
+                
+                elif tool_name == "coordinator_customize_project_template":
+                    template_id = arguments.get("template_id", "")
+                    customizations = arguments.get("customizations", {})
+                    
+                    if not template_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "template_id is required"
+                        })
+                    else:
+                        # Use the Coordinator Agent through chat_with_coordinator
+                        message = {
+                            "type": "project_generation",
+                            "action": "customize_template",
+                            "template_id": template_id,
+                            "customizations": customizations
+                        }
+                        
+                        result = agent_system.chat_with_coordinator(json.dumps(message))
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["response"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to customize template through coordinator: {result['error']}"
+                            })
+                
+                elif tool_name == "coordinator_get_generated_project_status":
+                    project_id = arguments.get("project_id", "")
+                    if not project_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_id is required"
+                        })
+                    else:
+                        # Use the Coordinator Agent through chat_with_coordinator
+                        message = {
+                            "type": "project_generation",
+                            "action": "get_status",
+                            "project_id": project_id
+                        }
+                        
+                        result = agent_system.chat_with_coordinator(json.dumps(message))
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["response"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to get project status through coordinator: {result['error']}"
+                            })
+                
+                elif tool_name == "coordinator_list_generated_projects":
+                    # Use the Coordinator Agent through chat_with_coordinator
+                    message = {
+                        "type": "project_generation",
+                        "action": "list_projects"
+                    }
+                    
+                    result = agent_system.chat_with_coordinator(json.dumps(message))
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["response"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list generated projects through coordinator: {result['error']}"
+                        })
+                
                 else:
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
                     
