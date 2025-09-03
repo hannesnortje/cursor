@@ -803,6 +803,170 @@ class AgentSystem:
             logger.error(f"Could not import ProjectGenerationAgent: {e}")
             raise
     
+    # Phase 5.3: Backend Agent Methods
+    def design_api(self, api_type: str, name: str, description: str = "",
+                  endpoints: List[Dict[str, Any]] = None,
+                  data_models: List[Dict[str, Any]] = None,
+                  authentication: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Design a new API specification."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            return backend_agent.design_api(api_type, name, description, endpoints, data_models, authentication)
+        except Exception as e:
+            logger.error(f"Error designing API: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def create_database_schema(self, database_type: str, name: str, description: str = "",
+                              entities: List[Dict[str, Any]] = None,
+                              relationships: List[Dict[str, Any]] = None,
+                              constraints: List[Dict[str, Any]] = None,
+                              indexes: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create a new database schema."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            return backend_agent.create_database_schema(database_type, name, description, entities, relationships, constraints, indexes)
+        except Exception as e:
+            logger.error(f"Error creating database schema: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def implement_security(self, security_type: str, name: str, description: str = "",
+                          method: str = "jwt", configuration: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Implement security configuration."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            return backend_agent.implement_security(security_type, name, description, method, configuration)
+        except Exception as e:
+            logger.error(f"Error implementing security: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def design_architecture(self, architecture_type: str, name: str, description: str = "",
+                           components: List[Dict[str, Any]] = None,
+                           deployment: str = "docker", scaling: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Design system architecture."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            return backend_agent.design_architecture(architecture_type, name, description, components, deployment, scaling)
+        except Exception as e:
+            logger.error(f"Error designing architecture: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def generate_api_code(self, language: str, framework: str, specification_id: str) -> Dict[str, Any]:
+        """Generate API code for the specified language and framework."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            return backend_agent.generate_api_code(language, framework, specification_id)
+        except Exception as e:
+            logger.error(f"Error generating API code: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def get_backend_specifications(self, spec_type: str = "all") -> Dict[str, Any]:
+        """Get all backend specifications."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            if spec_type == "api":
+                specs = backend_agent.get_api_specifications()
+                message = f"Retrieved {len(specs)} API specifications"
+            elif spec_type == "database":
+                specs = backend_agent.get_database_schemas()
+                message = f"Retrieved {len(specs)} database schemas"
+            elif spec_type == "security":
+                specs = backend_agent.get_security_configurations()
+                message = f"Retrieved {len(specs)} security configurations"
+            elif spec_type == "architecture":
+                specs = backend_agent.get_architecture_designs()
+                message = f"Retrieved {len(specs)} architecture designs"
+            else:  # all
+                api_specs = backend_agent.get_api_specifications()
+                db_schemas = backend_agent.get_database_schemas()
+                security_configs = backend_agent.get_security_configurations()
+                arch_designs = backend_agent.get_architecture_designs()
+                specs = {
+                    "api_specifications": api_specs,
+                    "database_schemas": db_schemas,
+                    "security_configurations": security_configs,
+                    "architecture_designs": arch_designs
+                }
+                message = f"Retrieved {len(api_specs)} APIs, {len(db_schemas)} databases, {len(security_configs)} security configs, {len(arch_designs)} architectures"
+            
+            return {
+                "success": True,
+                "message": message,
+                "specifications": specs,
+                "type": spec_type
+            }
+        except Exception as e:
+            logger.error(f"Error getting backend specifications: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def get_supported_technologies(self, category: str = None) -> Dict[str, Any]:
+        """Get list of supported technologies."""
+        try:
+            # Get or create Backend Agent
+            backend_agent = self._get_or_create_backend_agent()
+            
+            if category == "languages":
+                techs = backend_agent.get_supported_languages()
+                message = f"Supported languages: {', '.join(techs)}"
+            elif category == "frameworks":
+                techs = {}
+                for lang in backend_agent.get_supported_languages():
+                    techs[lang] = backend_agent.get_supported_frameworks(lang)
+                message = f"Supported frameworks by language: {techs}"
+            elif category == "databases":
+                techs = {}
+                for db_type in ["sql", "nosql", "graph"]:
+                    techs[db_type] = backend_agent.get_supported_databases(db_type)
+                message = f"Supported databases by type: {techs}"
+            else:  # all
+                languages = backend_agent.get_supported_languages()
+                frameworks = {}
+                for lang in languages:
+                    frameworks[lang] = backend_agent.get_supported_frameworks(lang)
+                databases = {}
+                for db_type in ["sql", "nosql", "graph"]:
+                    databases[db_type] = backend_agent.get_supported_databases(db_type)
+                
+                techs = {
+                    "languages": languages,
+                    "frameworks": frameworks,
+                    "databases": databases
+                }
+                message = f"Supported technologies: {len(languages)} languages, {sum(len(f) for f in frameworks.values())} frameworks, {sum(len(d) for d in databases.values())} database types"
+            
+            return {
+                "success": True,
+                "message": message,
+                "technologies": techs,
+                "category": category or "all"
+            }
+        except Exception as e:
+            logger.error(f"Error getting supported technologies: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def _get_or_create_backend_agent(self):
+        """Get or create a Backend Agent instance."""
+        # Check if we already have a Backend Agent
+        for agent in self.agents.values():
+            if hasattr(agent, 'name') and agent.name == "Backend Agent":
+                return agent
+        
+        # Create new Backend Agent if none exists
+        try:
+            from src.agents.specialized.backend_agent import BackendAgent
+            backend_agent = BackendAgent()
+            self.register_agent(backend_agent)
+            logger.info("Created new Backend Agent")
+            return backend_agent
+        except ImportError as e:
+            logger.error(f"Could not import BackendAgent: {e}")
+            raise
+    
     def _get_or_create_coordinator_agent(self):
         """Get or create a Coordinator Agent instance."""
         # Check if we already have a Coordinator Agent
@@ -1544,6 +1708,106 @@ def main():
                                 "required": ["template_id", "project_name"]
                             }
                         },
+                        # Phase 5.3: Backend Agent Tools
+                        {
+                            "name": "design_api",
+                            "description": "Design a new API specification (REST, GraphQL, gRPC)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "api_type": {"type": "string", "description": "Type of API (rest, graphql, grpc)"},
+                                    "name": {"type": "string", "description": "Name of the API"},
+                                    "description": {"type": "string", "description": "Description of the API"},
+                                    "endpoints": {"type": "array", "items": {"type": "object"}, "description": "List of API endpoints"},
+                                    "data_models": {"type": "array", "items": {"type": "object"}, "description": "Data models for the API"},
+                                    "authentication": {"type": "object", "description": "Authentication configuration"}
+                                },
+                                "required": ["api_type", "name"]
+                            }
+                        },
+                        {
+                            "name": "create_database_schema",
+                            "description": "Create a new database schema design",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "database_type": {"type": "string", "description": "Type of database (postgresql, mysql, mongodb, redis)"},
+                                    "name": {"type": "string", "description": "Name of the database schema"},
+                                    "description": {"type": "string", "description": "Description of the database schema"},
+                                    "entities": {"type": "array", "items": {"type": "object"}, "description": "Database entities/tables"},
+                                    "relationships": {"type": "array", "items": {"type": "object"}, "description": "Entity relationships"},
+                                    "constraints": {"type": "array", "items": {"type": "object"}, "description": "Database constraints"},
+                                    "indexes": {"type": "array", "items": {"type": "object"}, "description": "Database indexes"}
+                                },
+                                "required": ["database_type", "name"]
+                            }
+                        },
+                        {
+                            "name": "implement_security",
+                            "description": "Implement security configuration (authentication, authorization, encryption)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "security_type": {"type": "string", "description": "Type of security (authentication, authorization, encryption)"},
+                                    "name": {"type": "string", "description": "Name of the security configuration"},
+                                    "description": {"type": "string", "description": "Description of the security configuration"},
+                                    "method": {"type": "string", "description": "Security method (jwt, oauth2, rbac, aes, rsa)"},
+                                    "configuration": {"type": "object", "description": "Security configuration parameters"}
+                                },
+                                "required": ["security_type", "name"]
+                            }
+                        },
+                        {
+                            "name": "design_architecture",
+                            "description": "Design system architecture (monolith, microservices, serverless)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "architecture_type": {"type": "string", "description": "Type of architecture (monolith, microservices, serverless)"},
+                                    "name": {"type": "string", "description": "Name of the architecture design"},
+                                    "description": {"type": "string", "description": "Description of the architecture design"},
+                                    "components": {"type": "array", "items": {"type": "object"}, "description": "System components"},
+                                    "deployment": {"type": "string", "description": "Deployment type (docker, kubernetes, cloud, bare_metal)"},
+                                    "scaling": {"type": "object", "description": "Scaling configuration"}
+                                },
+                                "required": ["architecture_type", "name"]
+                            }
+                        },
+                        {
+                            "name": "generate_api_code",
+                            "description": "Generate API code for the specified language and framework",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "language": {"type": "string", "description": "Programming language (python, nodejs, java, go, rust)"},
+                                    "framework": {"type": "string", "description": "Framework (fastapi, express, spring, gin, actix-web)"},
+                                    "specification_id": {"type": "string", "description": "ID of the API specification to use"}
+                                },
+                                "required": ["language", "framework", "specification_id"]
+                            }
+                        },
+                        {
+                            "name": "get_backend_specifications",
+                            "description": "Get all backend specifications (APIs, databases, security, architecture)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string", "description": "Type of specification (api, database, security, architecture, all)"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_supported_technologies",
+                            "description": "Get list of supported technologies (languages, frameworks, databases)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "category": {"type": "string", "description": "Category (languages, frameworks, databases)"}
+                                },
+                                "required": []
+                            }
+                        },
                         {
                             "name": "coordinator_create_custom_project",
                             "description": "Create a custom project through the Coordinator Agent",
@@ -2091,6 +2355,162 @@ def main():
                                 "code": -32603,
                                 "message": f"Failed to create custom project: {result['error']}"
                             })
+                
+                # Phase 5.3: Backend Agent Tools
+                elif tool_name == "design_api":
+                    api_type = arguments.get("api_type", "")
+                    name = arguments.get("name", "")
+                    description = arguments.get("description", "")
+                    endpoints = arguments.get("endpoints", [])
+                    data_models = arguments.get("data_models", [])
+                    authentication = arguments.get("authentication", {})
+                    
+                    if not api_type or not name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "api_type and name are required"
+                        })
+                    else:
+                        result = agent_system.design_api(api_type, name, description, endpoints, data_models, authentication)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to design API: {result['error']}"
+                            })
+                
+                elif tool_name == "create_database_schema":
+                    database_type = arguments.get("database_type", "")
+                    name = arguments.get("name", "")
+                    description = arguments.get("description", "")
+                    entities = arguments.get("entities", [])
+                    relationships = arguments.get("relationships", [])
+                    constraints = arguments.get("constraints", [])
+                    indexes = arguments.get("indexes", [])
+                    
+                    if not database_type or not name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "database_type and name are required"
+                        })
+                    else:
+                        result = agent_system.create_database_schema(database_type, name, description, entities, relationships, constraints, indexes)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create database schema: {result['error']}"
+                            })
+                
+                elif tool_name == "implement_security":
+                    security_type = arguments.get("security_type", "")
+                    name = arguments.get("name", "")
+                    description = arguments.get("description", "")
+                    method = arguments.get("method", "jwt")
+                    configuration = arguments.get("configuration", {})
+                    
+                    if not security_type or not name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "security_type and name are required"
+                        })
+                    else:
+                        result = agent_system.implement_security(security_type, name, description, method, configuration)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to implement security: {result['error']}"
+                            })
+                
+                elif tool_name == "design_architecture":
+                    architecture_type = arguments.get("architecture_type", "")
+                    name = arguments.get("name", "")
+                    description = arguments.get("description", "")
+                    components = arguments.get("components", [])
+                    deployment = arguments.get("deployment", "docker")
+                    scaling = arguments.get("scaling", {})
+                    
+                    if not architecture_type or not name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "architecture_type and name are required"
+                        })
+                    else:
+                        result = agent_system.design_architecture(architecture_type, name, description, components, deployment, scaling)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to design architecture: {result['error']}"
+                            })
+                
+                elif tool_name == "generate_api_code":
+                    language = arguments.get("language", "")
+                    framework = arguments.get("framework", "")
+                    specification_id = arguments.get("specification_id", "")
+                    
+                    if not language or not framework or not specification_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "language, framework, and specification_id are required"
+                        })
+                    else:
+                        result = agent_system.generate_api_code(language, framework, specification_id)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to generate API code: {result['error']}"
+                            })
+                
+                elif tool_name == "get_backend_specifications":
+                    spec_type = arguments.get("type", "all")
+                    result = agent_system.get_backend_specifications(spec_type)
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get backend specifications: {result['error']}"
+                        })
+                
+                elif tool_name == "get_supported_technologies":
+                    category = arguments.get("category")
+                    result = agent_system.get_supported_technologies(category)
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get supported technologies: {result['error']}"
+                        })
                 
                 elif tool_name == "list_agents":
                     result = agent_system.list_agents()
