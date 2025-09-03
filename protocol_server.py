@@ -411,6 +411,78 @@ class AgentSystem:
             logger.error(f"Error calculating team velocity: {e}")
             return {"success": False, "error": str(e)}
 
+    def list_project_templates(self, language: Optional[str] = None, 
+                             category: Optional[str] = None) -> Dict[str, Any]:
+        """List available project templates with optional filtering."""
+        try:
+            # Get or create Project Generation Agent
+            project_gen_agent = self._get_or_create_project_gen_agent()
+            return project_gen_agent.list_project_templates(language, category)
+        except Exception as e:
+            logger.error(f"Error listing project templates: {e}")
+            return {"success": False, "error": str(e)}
+
+    def generate_project(self, template_id: str, project_name: str, 
+                        target_path: str = ".", 
+                        customizations: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Generate a new project from a template."""
+        try:
+            # Get or create Project Generation Agent
+            project_gen_agent = self._get_or_create_project_gen_agent()
+            return project_gen_agent.generate_project(template_id, project_name, target_path, customizations)
+        except Exception as e:
+            logger.error(f"Error generating project: {e}")
+            return {"success": False, "error": str(e)}
+
+    def customize_project_template(self, template_id: str, 
+                                 customizations: Dict[str, Any]) -> Dict[str, Any]:
+        """Customize an existing project template."""
+        try:
+            # Get or create Project Generation Agent
+            project_gen_agent = self._get_or_create_project_gen_agent()
+            return project_gen_agent.customize_project_template(template_id, customizations)
+        except Exception as e:
+            logger.error(f"Error customizing template: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_generated_project_status(self, project_id: str) -> Dict[str, Any]:
+        """Get status of a generated project."""
+        try:
+            # Get or create Project Generation Agent
+            project_gen_agent = self._get_or_create_project_gen_agent()
+            return project_gen_agent.get_project_status(project_id)
+        except Exception as e:
+            logger.error(f"Error getting generated project status: {e}")
+            return {"success": False, "error": str(e)}
+
+    def list_generated_projects(self) -> Dict[str, Any]:
+        """List all generated projects."""
+        try:
+            # Get or create Project Generation Agent
+            project_gen_agent = self._get_or_create_project_gen_agent()
+            return project_gen_agent.list_generated_projects()
+        except Exception as e:
+            logger.error(f"Error listing generated projects: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _get_or_create_project_gen_agent(self):
+        """Get or create a Project Generation Agent instance."""
+        # Check if we already have a Project Generation Agent
+        for agent in self.agents.values():
+            if hasattr(agent, 'name') and agent.name == "Project Generation Agent":
+                return agent
+        
+        # Create new Project Generation Agent if none exists
+        try:
+            from src.agents.specialized.project_generation_agent import ProjectGenerationAgent
+            project_gen_agent = ProjectGenerationAgent()
+            self.register_agent(project_gen_agent)
+            logger.info("Created new Project Generation Agent")
+            return project_gen_agent
+        except ImportError as e:
+            logger.error(f"Could not import ProjectGenerationAgent: {e}")
+            raise
+
     def _get_or_create_agile_agent(self):
         """Get or create an Agile Agent instance."""
         # Check if we already have an Agile Agent
@@ -421,9 +493,16 @@ class AgentSystem:
         # Create new Agile Agent if none exists
         try:
             from src.agents.specialized.agile_agent import AgileAgent
+            from src.agents.specialized.project_generation_agent import ProjectGenerationAgent
             agile_agent = AgileAgent()
             self.register_agent(agile_agent)
             logger.info("Created new Agile Agent")
+            
+            # Create and register Project Generation Agent
+            project_gen_agent = ProjectGenerationAgent()
+            self.register_agent(project_gen_agent)
+            logger.info("Created new Project Generation Agent")
+            
             return agile_agent
         except ImportError as e:
             logger.error(f"Could not import AgileAgent: {e}")
@@ -729,6 +808,64 @@ def main():
                             },
                             "required": ["project_id"]
                         }
+                    },
+                    # New Project Generation Agent Tools
+                    {
+                        "name": "list_project_templates",
+                        "description": "List available project templates with optional filtering by language and category",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "language": {"type": "string", "description": "Filter by programming language (python, cpp, java, go, rust, typescript, etc.)"},
+                                "category": {"type": "string", "description": "Filter by project category (web, api, library, cli, data-science, etc.)"}
+                            },
+                            "required": []
+                        }
+                    },
+                    {
+                        "name": "generate_project",
+                        "description": "Generate a new project from a template",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "template_id": {"type": "string", "description": "ID of the template to use"},
+                                "project_name": {"type": "string", "description": "Name of the project to create"},
+                                "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"},
+                                "customizations": {"type": "object", "description": "Optional customizations for the project"}
+                            },
+                            "required": ["template_id", "project_name"]
+                        }
+                    },
+                    {
+                        "name": "customize_project_template",
+                        "description": "Customize an existing project template",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "template_id": {"type": "string", "description": "ID of the template to customize"},
+                                "customizations": {"type": "object", "description": "Customizations to apply to the template"}
+                            },
+                            "required": ["template_id", "customizations"]
+                        }
+                    },
+                    {
+                        "name": "get_generated_project_status",
+                        "description": "Get status of a generated project",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string", "description": "ID of the generated project"}
+                            },
+                            "required": ["project_id"]
+                        }
+                    },
+                    {
+                        "name": "list_generated_projects",
+                        "description": "List all generated projects",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {}
+                        }
                     }
                 ]
             }
@@ -981,6 +1118,64 @@ def main():
                                     "sprint_count": {"type": "integer"}
                                 },
                                 "required": ["project_id"]
+                            }
+                        },
+                        # Phase 5.2: Project Generation Agent Tools
+                        {
+                            "name": "list_project_templates",
+                            "description": "List available project templates with optional filtering by language and category",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "language": {"type": "string", "description": "Filter by programming language (python, cpp, java, go, rust, typescript, etc.)"},
+                                    "category": {"type": "string", "description": "Filter by project category (web, api, library, cli, data-science, etc.)"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "generate_project",
+                            "description": "Generate a new project from a template",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "template_id": {"type": "string", "description": "ID of the template to use"},
+                                    "project_name": {"type": "string", "description": "Name of the project to create"},
+                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"},
+                                    "customizations": {"type": "object", "description": "Optional customizations for the project"}
+                                },
+                                "required": ["template_id", "project_name"]
+                            }
+                        },
+                        {
+                            "name": "customize_project_template",
+                            "description": "Customize an existing project template",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "template_id": {"type": "string", "description": "ID of the template to customize"},
+                                    "customizations": {"type": "object", "description": "Customizations to apply to the template"}
+                                },
+                                "required": ["template_id", "customizations"]
+                            }
+                        },
+                        {
+                            "name": "get_generated_project_status",
+                            "description": "Get status of a generated project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "ID of the generated project"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "list_generated_projects",
+                            "description": "List all generated projects",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {}
                             }
                         }
                     ]
@@ -1353,6 +1548,102 @@ def main():
                                 "code": -32603,
                                 "message": f"Failed to calculate team velocity: {result['error']}"
                             })
+                
+                # Project Generation Agent Tools
+                elif tool_name == "list_project_templates":
+                    language = arguments.get("language")
+                    category = arguments.get("category")
+                    
+                    result = agent_system.list_project_templates(language, category)
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list project templates: {result['error']}"
+                        })
+                
+                elif tool_name == "generate_project":
+                    template_id = arguments.get("template_id", "")
+                    project_name = arguments.get("project_name", "")
+                    target_path = arguments.get("target_path", ".")
+                    customizations = arguments.get("customizations", {})
+                    
+                    if not template_id or not project_name:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "template_id and project_name are required"
+                        })
+                    else:
+                        result = agent_system.generate_project(template_id, project_name, target_path, customizations)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to generate project: {result['error']}"
+                            })
+                
+                elif tool_name == "customize_project_template":
+                    template_id = arguments.get("template_id", "")
+                    customizations = arguments.get("customizations", {})
+                    
+                    if not template_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "template_id is required"
+                        })
+                    else:
+                        result = agent_system.customize_project_template(template_id, customizations)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to customize template: {result['error']}"
+                            })
+                
+                elif tool_name == "get_generated_project_status":
+                    project_id = arguments.get("project_id", "")
+                    if not project_id:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_id is required"
+                        })
+                    else:
+                        result = agent_system.get_generated_project_status(project_id)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to get generated project status: {result['error']}"
+                            })
+                
+                elif tool_name == "list_generated_projects":
+                    result = agent_system.list_generated_projects()
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list generated projects: {result['error']}"
+                        })
                 
                 elif tool_name == "list_agents":
                     result = agent_system.list_agents()
