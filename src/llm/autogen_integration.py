@@ -8,7 +8,7 @@ import json
 
 try:
     import autogen
-    from autogen import Agent, AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+    from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
     AUTOGEN_AVAILABLE = True
 except ImportError:
     AUTOGEN_AVAILABLE = False
@@ -48,7 +48,7 @@ class AutoGenAgentWrapper:
                 logger.warning(f"Failed to create AutoGen agent {self.agent_id}: {e}")
                 self.agent = None
     
-    def _create_autogen_agent(self) -> Agent:
+    def _create_autogen_agent(self):
         """Create an AutoGen agent."""
         try:
             llm_config = {
@@ -117,7 +117,7 @@ class AutoGenGroupChat:
         self.manager = self._create_chat_manager()
         self.conversation_history = []
     
-    def _create_group_chat(self) -> GroupChat:
+    def _create_group_chat(self):
         """Create an AutoGen group chat."""
         if not AUTOGEN_AVAILABLE:
             return None
@@ -133,7 +133,7 @@ class AutoGenGroupChat:
             max_round=50
         )
     
-    def _create_chat_manager(self) -> GroupChatManager:
+    def _create_chat_manager(self):
         """Create a chat manager for the group chat."""
         if not AUTOGEN_AVAILABLE or not self.group_chat:
             return None

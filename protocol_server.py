@@ -571,6 +571,7 @@ class AgentSystem:
                 "query": query,
                 "chat_id": chat_id,
                 "results": results,
+                "results_count": len(results),
                 "result_count": len(results),
                 "total_messages": len(results),
                 "storage": "vector_database" if self.vector_store and results else "in_memory",

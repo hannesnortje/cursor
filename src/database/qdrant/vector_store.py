@@ -53,7 +53,8 @@ class QdrantVectorStore:
     """Qdrant vector database for storing agent context and memory."""
     
     def __init__(self, host: str = "localhost", port: int = 6333, 
-                 api_key: Optional[str] = None):
+                 api_key: Optional[str] = None, 
+                 auto_initialize: bool = True):
         if not QDRANT_AVAILABLE:
             raise ImportError("Qdrant client not available")
         
@@ -64,7 +65,8 @@ class QdrantVectorStore:
             "agents": "agents"
         }
         
-        self._initialize_collections()
+        if auto_initialize:
+            self._initialize_collections()
     
     def _initialize_collections(self):
         """Initialize Qdrant collections."""
@@ -417,8 +419,17 @@ class QdrantVectorStore:
 vector_store = None
 if QDRANT_AVAILABLE:
     try:
-        vector_store = QdrantVectorStore()
+        # Try to connect without auto-initializing collections
+        vector_store = QdrantVectorStore(auto_initialize=False)
+        # Test connection
+        vector_store.client.get_collections()
+        # If connection successful, initialize collections
+        vector_store._initialize_collections()
+        logging.info("Qdrant vector store initialized successfully")
     except Exception as e:
-        logging.warning(f"Failed to initialize Qdrant vector store: {e}")
+        logging.info(f"Qdrant server not available: {e}")
         logging.info("Vector store will be disabled. Start Qdrant server to enable.")
+        logging.info("To start Qdrant: docker run -p 6333:6333 qdrant/qdrant")
         vector_store = None
+else:
+    logging.info("Qdrant client not available. Install with: pip install qdrant-client")

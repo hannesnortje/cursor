@@ -128,10 +128,10 @@ class CursorLLMProvider:
             # For now, we'll use common patterns and let the system validate them
             
             potential_models = [
-                ("gpt-5", 128000, "cursor://openai"),
-                ("gpt-4o", 128000, "cursor://openai"),
-                ("gpt-4-turbo", 128000, "cursor://openai"),
-                ("gpt-4", 8192, "cursor://openai"),
+                ("gpt-5", 128000, "cursor://builtin"),
+                ("gpt-4o", 128000, "cursor://builtin"),
+                ("gpt-4-turbo", 128000, "cursor://builtin"),
+                ("gpt-4", 8192, "cursor://builtin"),
             ]
             
             for name, max_tokens, api_base in potential_models:
@@ -155,12 +155,12 @@ class CursorLLMProvider:
         try:
             # This would check what Claude models are actually available
             potential_models = [
-                ("claude-3-5-sonnet", 200000, "cursor://anthropic"),
-                ("claude-3-5-haiku", 200000, "cursor://anthropic"),
-                ("claude-3-opus", 200000, "cursor://anthropic"),
-                ("claude-3-sonnet", 200000, "cursor://anthropic"),
-                ("claude-3-haiku", 200000, "cursor://anthropic"),
-                ("claude-sonnet-4", 200000, "cursor://anthropic"),
+                ("claude-3-5-sonnet", 200000, "cursor://builtin"),
+                ("claude-3-5-haiku", 200000, "cursor://builtin"),
+                ("claude-3-opus", 200000, "cursor://builtin"),
+                ("claude-3-sonnet", 200000, "cursor://builtin"),
+                ("claude-3-haiku", 200000, "cursor://builtin"),
+                ("claude-sonnet-4", 200000, "cursor://builtin"),
             ]
             
             for name, max_tokens, api_base in potential_models:
@@ -184,15 +184,15 @@ class CursorLLMProvider:
         try:
             # This would check what other models are actually available
             other_models = [
-                ("grok-beta", 8192, "cursor://xai", ModelType.GENERAL),
-                ("gemini-1.5-pro", 1000000, "cursor://google", ModelType.GENERAL),
-                ("gemini-1.5-flash", 1000000, "cursor://google", ModelType.CODING),
-                ("llama-3.1-8b", 8192, "cursor://meta", ModelType.GENERAL),
-                ("llama-3.1-70b", 8192, "cursor://meta", ModelType.CODING),
-                ("mistral-large", 32768, "cursor://mistral", ModelType.GENERAL),
-                ("mistral-medium", 32768, "cursor://mistral", ModelType.CODING),
-                ("command-r-plus", 128000, "cursor://cohere", ModelType.GENERAL),
-                ("command-r", 128000, "cursor://cohere", ModelType.CODING),
+                ("grok-beta", 8192, "cursor://builtin", ModelType.GENERAL),
+                ("gemini-1.5-pro", 1000000, "cursor://builtin", ModelType.GENERAL),
+                ("gemini-1.5-flash", 1000000, "cursor://builtin", ModelType.CODING),
+                ("llama-3.1-8b", 8192, "cursor://builtin", ModelType.GENERAL),
+                ("llama-3.1-70b", 8192, "cursor://builtin", ModelType.CODING),
+                ("mistral-large", 32768, "cursor://builtin", ModelType.GENERAL),
+                ("mistral-medium", 32768, "cursor://builtin", ModelType.CODING),
+                ("command-r-plus", 128000, "cursor://builtin", ModelType.GENERAL),
+                ("command-r", 128000, "cursor://builtin", ModelType.CODING),
             ]
             
             for name, max_tokens, api_base, model_type in other_models:
@@ -220,7 +220,7 @@ class CursorLLMProvider:
                 model_type=ModelType.GENERAL,
                 max_tokens=128000,
                 temperature=0.7,
-                api_base="cursor://openai"
+                api_base="cursor://builtin"
             ),
             LLMModel(
                 name="claude-3-5-sonnet",
@@ -228,7 +228,7 @@ class CursorLLMProvider:
                 model_type=ModelType.CODING,
                 max_tokens=200000,
                 temperature=0.3,
-                api_base="cursor://anthropic"
+                api_base="cursor://builtin"
             ),
             LLMModel(
                 name="gemini-1.5-pro",
@@ -236,7 +236,7 @@ class CursorLLMProvider:
                 model_type=ModelType.GENERAL,
                 max_tokens=1000000,
                 temperature=0.7,
-                api_base="cursor://google"
+                api_base="cursor://builtin"
             )
         ]
     
@@ -249,7 +249,7 @@ class CursorLLMProvider:
                 model_type=ModelType.GENERAL,
                 max_tokens=128000,
                 temperature=0.7,
-                api_base="cursor://openai"
+                api_base="cursor://builtin"
             )
         ]
     
@@ -260,11 +260,22 @@ class CursorLLMProvider:
             self.available_models = await self._discover_cursor_models()
             self._discovered_models = True
         
-        # Mark discovered models as available
+        # Validate model availability (don't mark all as available by default)
+        validated_models = []
         for model in self.available_models:
-            model.is_available = True
+            try:
+                # Basic validation - check if model has required attributes
+                if model.name and model.api_base:
+                    model.is_available = True
+                    validated_models.append(model)
+                else:
+                    model.is_available = False
+                    logger.debug(f"Model {model.name} missing required attributes")
+            except Exception as e:
+                logger.debug(f"Model {model.name} validation failed: {e}")
+                model.is_available = False
         
-        return [model for model in self.available_models if model.is_available]
+        return validated_models
     
     async def generate(self, model_name: str, prompt: str, **kwargs) -> str:
         """Generate text using Cursor LLM."""
