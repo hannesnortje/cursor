@@ -88,7 +88,7 @@ class AgentSystem:
                     coordinator_agent = self._get_or_create_coordinator_agent()
                     
                     if action == "list_templates":
-                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
                         result = project_gen_agent.list_project_templates(
                             message_data.get("language"),
@@ -102,7 +102,7 @@ class AgentSystem:
                             "coordinator_status": "active"
                         }
                     elif action == "create_from_template":
-                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
                         result = project_gen_agent.generate_project(
                             message_data.get("template_id"),
@@ -118,7 +118,7 @@ class AgentSystem:
                             "coordinator_status": "active"
                         }
                     elif action == "create_custom":
-                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
                         result = project_gen_agent.create_custom_project(
                             message_data.get("project_name"),
@@ -134,7 +134,7 @@ class AgentSystem:
                             "coordinator_status": "active"
                         }
                     elif action == "customize_template":
-                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
                         result = project_gen_agent.customize_project_template(
                             message_data.get("template_id"),
@@ -148,7 +148,7 @@ class AgentSystem:
                             "coordinator_status": "active"
                         }
                     elif action == "get_status":
-                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
                         result = project_gen_agent.get_project_status(
                             message_data.get("project_id")
@@ -161,7 +161,7 @@ class AgentSystem:
                             "coordinator_status": "active"
                         }
                     elif action == "list_projects":
-                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
                         result = project_gen_agent.list_generated_projects()
                         return {
