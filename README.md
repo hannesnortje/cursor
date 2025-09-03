@@ -1,13 +1,17 @@
-# MCP Server for Cursor
+# AI Agent System with Cursor Integration
 
-A Model Context Protocol (MCP) server that provides tools for Cursor editor.
+A sophisticated AI Agent System built on the Model Context Protocol (MCP) that provides advanced tools for Cursor editor, including AutoGen integration, vector database storage, and specialized agents for project management.
 
 ## Features
 
-- **add_numbers**: Add two integers and return the sum
-- **reverse_text**: Reverse any given text string
-- Full MCP protocol implementation
-- Easy to extend with new tools
+- **🤖 AutoGen Integration**: Multi-agent conversations and coordination
+- **🗄️ Vector Database**: Qdrant-based context and memory storage
+- **🎭 Coordinator Agent**: Central orchestration and PDCA framework
+- **📋 Agile/Scrum Agent**: Sprint planning and user story management
+- **🏗️ Project Generation Agent**: Multi-language project scaffolding
+- **🌐 Cross-Chat Communication**: Real-time communication across sessions
+- **💾 Persistent Storage**: Redis-based message persistence
+- **🔧 MCP Tools**: Comprehensive toolset for Cursor integration
 
 ## Installation
 
@@ -77,11 +81,23 @@ poetry env info --path
 
 ```
 .
+├── src/                    # Source code and agent implementations
+├── tests/                  # Comprehensive test suite
+├── test_prompts/           # Testing prompts and guides
+├── docs/                   # Complete documentation
 ├── pyproject.toml          # Poetry configuration
 ├── protocol_server.py      # Main MCP server
-├── MCP_Server_Guide.md     # Comprehensive guide
 └── README.md               # This file
 ```
+
+## Documentation
+
+- [📚 docs/README.md](docs/README.md) - Documentation index and navigation
+- [📊 docs/implementation/IMPLEMENTATION_PROGRESS.md](docs/implementation/IMPLEMENTATION_PROGRESS.md) - Current status
+- [📋 docs/implementation/IMPLEMENTATION_PLAN.md](docs/implementation/IMPLEMENTATION_PLAN.md) - Roadmap
+- [🔧 docs/guides/MCP_Server_Guide.md](docs/guides/MCP_Server_Guide.md) - Usage guide
+- [🧪 tests/README.md](tests/README.md) - Testing framework
+- [🗣️ test_prompts/README.md](test_prompts/README.md) - Testing prompts
 
 ## License
 
