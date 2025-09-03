@@ -326,12 +326,20 @@ This document tracks the detailed progress of implementing the AI agent system b
 **Completion Date:** Not Started  
 
 #### 📋 Planned Tasks
-- [ ] **Dashboard Backend**: Create FastAPI dashboard backend with real-time data endpoints
-- [ ] **Dashboard Frontend**: Create React dashboard application with real-time updates
+- [ ] **Dashboard Backend**: Create FastAPI dashboard backend with real-time data endpoints (Port 5000)
+- [ ] **Dashboard Frontend**: Create Lit 3 dashboard application with real-time updates (Port 5000)
 - [ ] **Agent Monitoring**: Implement real-time agent status visualization and performance charts
 - [ ] **System Health**: Add comprehensive system health monitoring and alerting
 - [ ] **Integration**: Integrate dashboard with MCP server and real-time data streaming
 - [ ] **Testing**: Test dashboard functionality and real-time updates
+
+#### 🔧 Technical Requirements
+- **Backend**: FastAPI with WebSocket support on Port 5000
+- **Frontend**: Lit 3 (Google's lightweight web components framework)
+- **Ports**: Dashboard on 5000, MCP Server on 5007, WebSocket on 4000
+- **Real-time**: WebSocket connections for live updates
+- **Charts**: Chart.js or D3.js for data visualization
+- **Responsive**: Mobile-first design approach
 
 ---
 

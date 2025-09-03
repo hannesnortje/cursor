@@ -375,14 +375,14 @@ This document provides a comprehensive step-by-step plan for enhancing the exist
 ## Phase 8: Visual Dashboard & Monitoring
 
 ### 8.1 Dashboard Backend
-- [ ] Create FastAPI dashboard backend
+- [ ] Create FastAPI dashboard backend (Port 5000)
 - [ ] Implement real-time data endpoints
 - [ ] Add agent monitoring APIs
 - [ ] Create system health endpoints
 - [ ] Test dashboard backend
 
 ### 8.2 Dashboard Frontend
-- [ ] Create React dashboard application
+- [ ] Create Lit 3 dashboard application (Port 5000)
 - [ ] Implement real-time updates
 - [ ] Add agent status visualization
 - [ ] Create performance charts
