@@ -12,7 +12,7 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 
 from .redis_queue import RedisMessageQueue, QueuedMessage
-from .cross_chat_coordinator import CrossChatEvent
+from .events import CrossChatEvent
 
 logger = logging.getLogger(__name__)
 

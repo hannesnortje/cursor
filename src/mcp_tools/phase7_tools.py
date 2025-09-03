@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """MCP Tools for Phase 7 Advanced Features."""
 
-import asyncio
 import logging
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from uuid import uuid4
 
 from src.agents.dynamic_agent_manager import dynamic_agent_manager
 from src.performance.performance_optimizer import performance_optimizer
 from src.communication.advanced_communication import (
-    advanced_communication, 
-    AdvancedMessage, 
-    MessagePriority, 
+    advanced_communication,
+    AdvancedMessage,
+    MessagePriority,
     MessageType,
     MessageFilter
 )
 
 logger = logging.getLogger(__name__)
+
 
 class Phase7Tools:
     """MCP tools for Phase 7 advanced features."""
@@ -370,6 +370,7 @@ class Phase7Tools:
                 "error": str(e),
                 "overall_health": "error"
             }
+
 
 # Global instance
 phase7_tools = Phase7Tools()

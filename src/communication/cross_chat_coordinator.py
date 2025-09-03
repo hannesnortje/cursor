@@ -4,41 +4,17 @@ Cross-Chat Coordinator for AI Agent System.
 Manages communication across multiple chat sessions with real-time synchronization.
 """
 
-import asyncio
-import json
 import logging
 from typing import Dict, List, Any, Optional, Set
 from datetime import datetime
-from dataclasses import dataclass, asdict
 
-from .message_router import MessageRouter, CrossChatMessage, ChatSession
+from .message_router import MessageRouter, ChatSession
 from .session_manager import SessionManager
-from .websocket_server import WebSocketServer, WebSocketMessage
+from .websocket_server import WebSocketServer
 from .real_time_handler import RealTimeMessageHandler
+from .events import CrossChatEvent, CrossChatMessage, WebSocketMessage
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class CrossChatEvent:
-    """Event that can be broadcast across multiple chats."""
-    event_id: str
-    event_type: str  # 'message', 'project_update', 'agent_status', 'sprint_update'
-    source_chat: str
-    source_agent: str
-    content: Any
-    target_chats: List[str]  # 'all' or specific chat IDs
-    priority: int = 2  # 1=low, 2=normal, 3=high, 4=urgent
-    timestamp: str = ""
-    metadata: Optional[Dict[str, Any]] = None
-    
-    def __post_init__(self):
-        if not self.timestamp:
-            self.timestamp = datetime.now().isoformat()
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return asdict(self)
 
 
 class CrossChatCoordinator:
@@ -155,7 +131,7 @@ class CrossChatCoordinator:
             logger.error(f"Failed to unsubscribe agent {agent_id} from chat {chat_id}: {e}")
             return False
     
-    def broadcast_event(self, event: CrossChatEvent) -> Dict[str, Any]:
+    async def broadcast_event(self, event: CrossChatEvent) -> Dict[str, Any]:
         """Broadcast an event across multiple chat sessions."""
         try:
             # Add to broadcast history

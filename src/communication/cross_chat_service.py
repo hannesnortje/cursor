@@ -8,7 +8,8 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from .cross_chat_coordinator import CrossChatCoordinator, CrossChatEvent
+from .cross_chat_coordinator import CrossChatCoordinator
+from .events import CrossChatEvent
 from .websocket_server import WebSocketServer
 from .message_router import MessageRouter
 from .session_manager import SessionManager
@@ -224,7 +225,7 @@ class CrossChatService:
                 "timestamp": datetime.now().isoformat()
             }
     
-    def broadcast_message(self, source_chat: str, source_agent: str, 
+    async def broadcast_message(self, source_chat: str, source_agent: str, 
                          content: Any, target_chats: List[str], 
                          message_type: str = "message", priority: int = 2) -> Dict[str, Any]:
         """Broadcast a message across multiple chat sessions."""
@@ -239,7 +240,7 @@ class CrossChatService:
                 priority=priority
             )
             
-            result = self.coordinator.broadcast_event(event)
+            result = await self.coordinator.broadcast_event(event)
             
             if result["success"]:
                 return {
