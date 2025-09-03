@@ -1059,14 +1059,27 @@ class AgentSystem:
             # Get available models from the LLM gateway
             available_models = asyncio.run(llm_gateway.get_available_models())
             
+            # Convert models to serializable format and filter out non-provider keys
+            serializable_models = {}
+            for provider_name, models in available_models.items():
+                # Skip non-provider keys like 'total_count'
+                if provider_name in ['cursor', 'docker_ollama', 'lm_studio']:
+                    if isinstance(models, list):
+                        serializable_models[provider_name] = [
+                            model.to_dict() if hasattr(model, 'to_dict') else str(model)
+                            for model in models
+                        ]
+                    else:
+                        serializable_models[provider_name] = str(models)
+            
             if provider != "all":
                 # Filter by specific provider
-                if provider in available_models:
-                    filtered_models = {provider: available_models[provider]}
+                if provider in serializable_models:
+                    filtered_models = {provider: serializable_models[provider]}
                 else:
                     filtered_models = {provider: []}
             else:
-                filtered_models = available_models
+                filtered_models = serializable_models
             
             total_count = sum(len(models) for models in filtered_models.values() if isinstance(models, list))
             
@@ -1092,16 +1105,22 @@ class AgentSystem:
             # Select best model using the LLM gateway
             selected_model = asyncio.run(llm_gateway.select_best_model(task_type, context))
             
+            # Convert model to serializable format
+            if hasattr(selected_model, 'to_dict'):
+                model_dict = selected_model.to_dict()
+            else:
+                model_dict = {
+                    "name": str(selected_model),
+                    "provider": "unknown",
+                    "model_type": "unknown",
+                    "max_tokens": 4096,
+                    "temperature": 0.7
+                }
+            
             return {
                 "success": True,
-                "message": f"Selected best model for {task_type} task: {selected_model.name}",
-                "model": {
-                    "name": selected_model.name,
-                    "provider": selected_model.provider.value,
-                    "model_type": selected_model.model_type.value,
-                    "max_tokens": selected_model.max_tokens,
-                    "temperature": selected_model.temperature
-                },
+                "message": f"Selected best model for {task_type} task: {model_dict['name']}",
+                "model": model_dict,
                 "task_type": task_type,
                 "context": context
             }
@@ -1123,6 +1142,12 @@ class AgentSystem:
                 prompt, task_type, preferred_model, 
                 temperature=temperature, max_tokens=max_tokens
             ))
+            
+            # Ensure result is a string
+            if isinstance(result, (list, tuple)):
+                result = str(result)
+            elif not isinstance(result, str):
+                result = str(result)
             
             return {
                 "success": True,

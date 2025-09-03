@@ -39,6 +39,24 @@ class LLMModel:
     is_available: bool = True
     response_time: float = 0.0
     success_rate: float = 1.0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "name": self.name,
+            "provider": self.provider.value,
+            "model_type": self.model_type.value,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "api_base": self.api_base,
+            "is_available": self.is_available,
+            "response_time": self.response_time,
+            "success_rate": self.success_rate
+        }
+    
+    def __json__(self):
+        """JSON serialization support."""
+        return self.to_dict()
 
 
 class CursorLLMProvider:
