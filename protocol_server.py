@@ -1113,6 +1113,10 @@ class AgentSystem:
             
             total_count = sum(len(models) for models in filtered_models.values() if isinstance(models, list))
             
+            # Add debug logging
+            logger.info(f"Successfully serialized {total_count} models from {len(filtered_models)} providers")
+            logger.info(f"Serializable models: {serializable_models}")
+            
             return {
                 "success": True,
                 "message": f"Found {total_count} LLM models from {len(filtered_models)} providers",
@@ -1122,6 +1126,8 @@ class AgentSystem:
             }
         except Exception as e:
             logger.error(f"Error getting LLM models: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 "success": False,
                 "error": str(e)
