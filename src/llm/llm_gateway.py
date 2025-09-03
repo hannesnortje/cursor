@@ -65,41 +65,175 @@ class CursorLLMProvider:
     def __init__(self, api_base: str = None):
         # Cursor LLMs are available through the MCP server, not external HTTP endpoints
         self.api_base = api_base
-        self.available_models = self._get_default_cursor_models()
+        self.available_models = []
+        self._discovered_models = False
     
-    def _get_default_cursor_models(self) -> List[LLMModel]:
-        """Get default Cursor LLM models."""
+    def _get_cursor_models(self) -> List[LLMModel]:
+        """Get comprehensive list of Cursor LLM models."""
         return [
+            # OpenAI Models
             LLMModel(
-                name="cursor-gpt-4-turbo",
+                name="gpt-5",
                 provider=LLMProvider.CURSOR,
                 model_type=ModelType.GENERAL,
-                max_tokens=4096,
+                max_tokens=128000,
                 temperature=0.7,
-                api_base="cursor://builtin"  # Cursor built-in LLM
+                api_base="cursor://openai"
             ),
             LLMModel(
-                name="cursor-claude-3-sonnet",
+                name="gpt-4o",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=128000,
+                temperature=0.7,
+                api_base="cursor://openai"
+            ),
+            LLMModel(
+                name="gpt-4-turbo",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=128000,
+                temperature=0.7,
+                api_base="cursor://openai"
+            ),
+            LLMModel(
+                name="gpt-4",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=8192,
+                temperature=0.7,
+                api_base="cursor://openai"
+            ),
+            # Anthropic Models
+            LLMModel(
+                name="claude-3-5-sonnet",
                 provider=LLMProvider.CURSOR,
                 model_type=ModelType.CODING,
-                max_tokens=4096,
+                max_tokens=200000,
                 temperature=0.3,
-                api_base="cursor://builtin"  # Cursor built-in LLM
+                api_base="cursor://anthropic"
             ),
             LLMModel(
-                name="cursor-gpt-4o",
+                name="claude-3-5-haiku",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=200000,
+                temperature=0.3,
+                api_base="cursor://anthropic"
+            ),
+            LLMModel(
+                name="claude-3-opus",
                 provider=LLMProvider.CURSOR,
                 model_type=ModelType.CREATIVE,
-                max_tokens=4096,
+                max_tokens=200000,
                 temperature=0.8,
-                api_base="cursor://builtin"  # Cursor built-in LLM
+                api_base="cursor://anthropic"
+            ),
+            LLMModel(
+                name="claude-3-sonnet",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=200000,
+                temperature=0.3,
+                api_base="cursor://anthropic"
+            ),
+            LLMModel(
+                name="claude-3-haiku",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.ANALYSIS,
+                max_tokens=200000,
+                temperature=0.5,
+                api_base="cursor://anthropic"
+            ),
+            # xAI Models
+            LLMModel(
+                name="grok-beta",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=8192,
+                temperature=0.7,
+                api_base="cursor://xai"
+            ),
+            # Google Models
+            LLMModel(
+                name="gemini-1.5-pro",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=1000000,
+                temperature=0.7,
+                api_base="cursor://google"
+            ),
+            LLMModel(
+                name="gemini-1.5-flash",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=1000000,
+                temperature=0.3,
+                api_base="cursor://google"
+            ),
+            # Meta Models
+            LLMModel(
+                name="llama-3.1-8b",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=8192,
+                temperature=0.7,
+                api_base="cursor://meta"
+            ),
+            LLMModel(
+                name="llama-3.1-70b",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=8192,
+                temperature=0.3,
+                api_base="cursor://meta"
+            ),
+            # Mistral Models
+            LLMModel(
+                name="mistral-large",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=32768,
+                temperature=0.7,
+                api_base="cursor://mistral"
+            ),
+            LLMModel(
+                name="mistral-medium",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=32768,
+                temperature=0.3,
+                api_base="cursor://mistral"
+            ),
+            # Cohere Models
+            LLMModel(
+                name="command-r-plus",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.GENERAL,
+                max_tokens=128000,
+                temperature=0.7,
+                api_base="cursor://cohere"
+            ),
+            LLMModel(
+                name="command-r",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=128000,
+                temperature=0.3,
+                api_base="cursor://cohere"
             )
         ]
     
     async def get_available_models(self) -> List[LLMModel]:
         """Get available Cursor LLM models."""
-        # Cursor LLMs are always available when running in Cursor
-        # Mark all models as available
+        if not self._discovered_models:
+            # Initialize models on first call
+            self.available_models = self._get_cursor_models()
+            self._discovered_models = True
+        
+        # For now, mark all models as available
+        # In a real implementation, this would check which models are actually accessible
+        # based on your Cursor subscription and available APIs
         for model in self.available_models:
             model.is_available = True
         
@@ -113,9 +247,8 @@ class CursorLLMProvider:
                 raise ValueError(f"Model {model_name} not found")
             
             # Since we're running in Cursor, we can use the built-in LLM capabilities
-            # For now, return a response indicating Cursor LLM usage
-            # In a real implementation, this would integrate with Cursor's LLM API
-            return f"[CURSOR LLM] This is a response from {model_name} for the prompt: '{prompt[:50]}{'...' if len(prompt) > 50 else ''}'. This is using Cursor's built-in LLM capabilities."
+            # This would integrate with Cursor's actual LLM API to use the real models
+            return f"[CURSOR LLM] This is a response from {model_name} for the prompt: '{prompt[:50]}{'...' if len(prompt) > 50 else ''}'. This is using Cursor's built-in LLM capabilities with {model.api_base}."
                     
         except Exception as e:
             logger.error(f"Error generating with Cursor LLM: {e}")
