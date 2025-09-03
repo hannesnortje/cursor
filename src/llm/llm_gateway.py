@@ -265,8 +265,8 @@ class LLMGateway:
         if task_type == "coding" or "code" in context.lower():
             # Prefer coding models
             coding_models = []
-            for provider_models in available_models.values():
-                if isinstance(provider_models, list):
+            for provider_name, provider_models in available_models.items():
+                if provider_name in ['cursor', 'docker_ollama', 'lm_studio'] and isinstance(provider_models, list):
                     for model in provider_models:
                         if model.model_type == ModelType.CODING and model.is_available:
                             coding_models.append(model)
@@ -277,8 +277,8 @@ class LLMGateway:
         elif task_type == "creative" or "creative" in context.lower():
             # Prefer creative models
             creative_models = []
-            for provider_models in available_models.values():
-                if isinstance(provider_models, list):
+            for provider_name, provider_models in available_models.items():
+                if provider_name in ['cursor', 'docker_ollama', 'lm_studio'] and isinstance(provider_models, list):
                     for model in provider_models:
                         if model.model_type == ModelType.CREATIVE and model.is_available:
                             creative_models.append(model)
@@ -288,8 +288,8 @@ class LLMGateway:
         
         # Default to best available model
         all_models = []
-        for provider_models in available_models.values():
-            if isinstance(provider_models, list):
+        for provider_name, provider_models in available_models.items():
+            if provider_name in ['cursor', 'docker_ollama', 'lm_studio'] and isinstance(provider_models, list):
                 for model in provider_models:
                     if model.is_available:
                         all_models.append(model)
@@ -357,11 +357,13 @@ class LLMGateway:
         available_models = await self.get_available_models()
         
         # Get all models except the failed one
-        fallback_models = [
-            model for provider_models in available_models.values() 
-            for model in provider_models 
-            if model.name != failed_model.name and model.is_available
-        ]
+        fallback_models = []
+        for provider_name, provider_models in available_models.items():
+            # Skip non-provider keys like 'total_count'
+            if provider_name in ['cursor', 'docker_ollama', 'lm_studio'] and isinstance(provider_models, list):
+                for model in provider_models:
+                    if model.name != failed_model.name and model.is_available:
+                        fallback_models.append(model)
         
         if not fallback_models:
             raise Exception("No fallback models available")

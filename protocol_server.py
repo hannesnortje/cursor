@@ -1195,14 +1195,19 @@ class AgentSystem:
             if test_type == "connectivity":
                 # Test basic connectivity
                 available_models = asyncio.run(llm_gateway.get_available_models())
-                total_models = sum(len(models) for models in available_models.values() if isinstance(models, list))
+                total_models = 0
+                providers = []
+                for provider_name, models in available_models.items():
+                    if provider_name in ['cursor', 'docker_ollama', 'lm_studio'] and isinstance(models, list):
+                        total_models += len(models)
+                        providers.append(provider_name)
                 
                 return {
                     "success": True,
                     "message": f"LLM integration test passed: {total_models} models available",
                     "test_type": test_type,
                     "models_available": total_models,
-                    "providers": list(available_models.keys())
+                    "providers": providers
                 }
             elif test_type == "generation":
                 # Test text generation
