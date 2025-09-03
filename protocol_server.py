@@ -1204,6 +1204,77 @@ def main():
                                 "required": ["project_name", "language"]
                             }
                         }
+                        {
+                            "name": "coordinator_create_project_from_template",
+                            "description": "Create a project using a template through the Coordinator Agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "template_id": {"type": "string", "description": "ID of the template to use"},
+                                    "project_name": {"type": "string", "description": "Name of the project to create"},
+                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"},
+                                    "customizations": {"type": "object", "description": "Optional customizations for the project"}
+                                },
+                                "required": ["template_id", "project_name"]
+                            }
+                        },
+                        {
+                            "name": "coordinator_create_custom_project",
+                            "description": "Create a custom project through the Coordinator Agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_name": {"type": "string", "description": "Name of the custom project to create"},
+                                    "language": {"type": "string", "description": "Programming language for the project"},
+                                    "custom_structure": {"type": "object", "description": "Optional custom project structure definition"},
+                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"}
+                                },
+                                "required": ["project_name", "language"]
+                            }
+                        },
+                        {
+                            "name": "coordinator_list_project_templates",
+                            "description": "List available project templates through the Coordinator Agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "language": {"type": "string", "description": "Filter by programming language"},
+                                    "category": {"type": "string", "description": "Filter by project category"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "coordinator_customize_project_template",
+                            "description": "Customize a project template through the Coordinator Agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "template_id": {"type": "string", "description": "ID of the template to customize"},
+                                    "customizations": {"type": "object", "description": "Customizations to apply to the template"}
+                                },
+                                "required": ["template_id", "customizations"]
+                            }
+                        },
+                        {
+                            "name": "coordinator_get_generated_project_status",
+                            "description": "Get status of a generated project through the Coordinator Agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "ID of the generated project"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "coordinator_list_generated_projects",
+                            "description": "List all generated projects through the Coordinator Agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        }
                     ]
                 }
                 send_response(request_id, tools_response)
