@@ -57,7 +57,7 @@ class ProjectGenerationAgent(BaseAgent):
         super().__init__(
             agent_id=agent_id or f"project_gen_{uuid.uuid4().hex[:8]}",
             name=name,
-            agent_type=AgentType.SPECIALIZED,
+            agent_type=AgentType.CUSTOM,
             capabilities=[
                 AgentCapability(
                     name="project_generation",
@@ -115,6 +115,9 @@ class ProjectGenerationAgent(BaseAgent):
         
         # TypeScript templates
         self._add_typescript_templates()
+        
+        # Vanilla/minimal templates
+        self._add_vanilla_templates()
         
         logger.info(f"Initialized {len(self.project_templates)} project templates")
     
@@ -376,6 +379,29 @@ class ProjectGenerationAgent(BaseAgent):
     
     def _add_typescript_templates(self):
         """Add TypeScript project templates."""
+        # Vanilla TypeScript template (no framework)
+        vanilla_ts_template = ProjectTemplate(
+            template_id="typescript_vanilla",
+            name="Vanilla TypeScript",
+            description="Pure TypeScript project with no framework dependencies",
+            language="typescript",
+            framework="vanilla",
+            category="library",
+            tags=["typescript", "vanilla", "no-framework", "pure"],
+            dependencies=["typescript", "ts-node", "jest", "@types/node"],
+            build_system="npm",
+            testing_framework="jest",
+            ci_cd_template="github_actions_typescript",
+            files=[
+                {"path": "package.json", "type": "build"},
+                {"path": "tsconfig.json", "type": "config"},
+                {"path": "src/", "type": "directory"},
+                {"path": "tests/", "type": "directory"},
+                {"path": "README.md", "type": "documentation"}
+            ]
+        )
+        self.project_templates["typescript_vanilla"] = vanilla_ts_template
+        
         # Node.js API template
         node_api_template = ProjectTemplate(
             template_id="typescript_node_api",
@@ -421,6 +447,97 @@ class ProjectGenerationAgent(BaseAgent):
             ]
         )
         self.project_templates["typescript_react_app"] = react_ts_template
+    
+    def _add_vanilla_templates(self):
+        """Add vanilla/minimal project templates without frameworks."""
+        # Vanilla Python template
+        vanilla_python_template = ProjectTemplate(
+            template_id="python_vanilla",
+            name="Vanilla Python",
+            description="Pure Python project with no framework dependencies",
+            language="python",
+            framework="vanilla",
+            category="library",
+            tags=["python", "vanilla", "no-framework", "pure"],
+            dependencies=["pytest", "black", "flake8"],
+            build_system="pip",
+            testing_framework="pytest",
+            ci_cd_template="github_actions_python",
+            files=[
+                {"path": "requirements.txt", "type": "dependencies"},
+                {"path": "src/", "type": "directory"},
+                {"path": "tests/", "type": "directory"},
+                {"path": "README.md", "type": "documentation"}
+            ]
+        )
+        self.project_templates["python_vanilla"] = vanilla_python_template
+        
+        # Vanilla C++ template
+        vanilla_cpp_template = ProjectTemplate(
+            template_id="cpp_vanilla",
+            name="Vanilla C++",
+            description="Pure C++ project with no framework dependencies",
+            language="cpp",
+            framework="vanilla",
+            category="library",
+            tags=["cpp", "vanilla", "no-framework", "pure"],
+            dependencies=[],
+            build_system="cmake",
+            testing_framework="google_test",
+            ci_cd_template="github_actions_cpp",
+            files=[
+                {"path": "CMakeLists.txt", "type": "build"},
+                {"path": "src/", "type": "directory"},
+                {"path": "include/", "type": "directory"},
+                {"path": "tests/", "type": "directory"},
+                {"path": "README.md", "type": "documentation"}
+            ]
+        )
+        self.project_templates["cpp_vanilla"] = vanilla_cpp_template
+        
+        # Vanilla Go template
+        vanilla_go_template = ProjectTemplate(
+            template_id="go_vanilla",
+            name="Vanilla Go",
+            description="Pure Go project with no framework dependencies",
+            language="go",
+            framework="vanilla",
+            category="library",
+            tags=["go", "vanilla", "no-framework", "pure"],
+            dependencies=[],
+            build_system="go_modules",
+            testing_framework="testing",
+            ci_cd_template="github_actions_go",
+            files=[
+                {"path": "go.mod", "type": "build"},
+                {"path": "src/", "type": "directory"},
+                {"path": "tests/", "type": "directory"},
+                {"path": "README.md", "type": "documentation"}
+            ]
+        )
+        self.project_templates["go_vanilla"] = vanilla_go_template
+        
+        # Vanilla Rust template
+        vanilla_rust_template = ProjectTemplate(
+            template_id="rust_vanilla",
+            name="Vanilla Rust",
+            description="Pure Rust project with no framework dependencies",
+            language="rust",
+            framework="vanilla",
+            category="library",
+            tags=["rust", "vanilla", "no-framework", "pure"],
+            dependencies=[],
+            build_system="cargo",
+            testing_framework="builtin",
+            ci_cd_template="github_actions_rust",
+            files=[
+                {"path": "Cargo.toml", "type": "build"},
+                {"path": "src/lib.rs", "type": "main"},
+                {"path": "tests/", "type": "directory"},
+                {"path": "README.md", "type": "documentation"}
+            ]
+        )
+        self.project_templates["rust_vanilla"] = vanilla_rust_template
     
     async def _execute_task_impl(self, task) -> Dict[str, Any]:
         """Execute task implementation - required by BaseAgent."""
@@ -663,6 +780,71 @@ class ProjectGenerationAgent(BaseAgent):
             
         except Exception as e:
             logger.error(f"Error getting project status: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def create_custom_project(self, project_name: str, language: str, 
+                             custom_structure: Dict[str, Any] = None,
+                             target_path: str = ".") -> Dict[str, Any]:
+        """Create a completely custom project with user-defined structure."""
+        try:
+            # Create project ID
+            project_id = f"{language}_{project_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            
+            # Default custom structure if none provided
+            if custom_structure is None:
+                custom_structure = {
+                    "directories": ["src", "tests", "docs"],
+                    "files": [
+                        {"path": "README.md", "type": "documentation"},
+                        {"path": "src/main.py", "type": "main"},
+                        {"path": "tests/test_main.py", "type": "test"}
+                    ],
+                    "dependencies": [],
+                    "build_system": "custom",
+                    "testing_framework": "custom"
+                }
+            
+            # Create project structure
+            project_structure = ProjectStructure(
+                project_id=project_id,
+                project_name=project_name,
+                language=language,
+                framework="custom",
+                base_path=target_path,
+                metadata={
+                    "custom_structure": custom_structure,
+                    "generated_by": self.agent_id,
+                    "is_custom": True
+                }
+            )
+            
+            # Store project structure
+            self.generated_projects[project_id] = project_structure
+            
+            logger.info(f"Created custom project {project_name} in {language}")
+            
+            return {
+                "success": True,
+                "message": f"Custom project '{project_name}' created successfully in {language}",
+                "project_id": project_id,
+                "project_name": project_name,
+                "language": language,
+                "framework": "custom",
+                "build_system": custom_structure.get("build_system", "custom"),
+                "testing_framework": custom_structure.get("testing_framework", "custom"),
+                "project_structure": {
+                    "base_path": target_path,
+                    "directories": custom_structure.get("directories", []),
+                    "files": custom_structure.get("files", []),
+                    "dependencies": custom_structure.get("dependencies", [])
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating custom project: {e}")
             return {
                 "success": False,
                 "error": str(e)

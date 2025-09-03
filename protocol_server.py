@@ -455,6 +455,18 @@ class AgentSystem:
             logger.error(f"Error getting generated project status: {e}")
             return {"success": False, "error": str(e)}
 
+    def create_custom_project(self, project_name: str, language: str, 
+                             custom_structure: Dict[str, Any] = None,
+                             target_path: str = ".") -> Dict[str, Any]:
+        """Create a completely custom project with user-defined structure."""
+        try:
+            # Get or create Project Generation Agent
+            project_gen_agent = self._get_or_create_project_gen_agent()
+            return project_gen_agent.create_custom_project(project_name, language, custom_structure, target_path)
+        except Exception as e:
+            logger.error(f"Error creating custom project: {e}")
+            return {"success": False, "error": str(e)}
+
     def list_generated_projects(self) -> Dict[str, Any]:
         """List all generated projects."""
         try:
@@ -1177,6 +1189,20 @@ def main():
                                 "type": "object",
                                 "properties": {}
                             }
+                        },
+                        {
+                            "name": "create_custom_project",
+                            "description": "Create a completely custom project with user-defined structure",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_name": {"type": "string", "description": "Name of the custom project to create"},
+                                    "language": {"type": "string", "description": "Programming language for the project"},
+                                    "custom_structure": {"type": "object", "description": "Optional custom project structure definition"},
+                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"}
+                                },
+                                "required": ["project_name", "language"]
+                            }
                         }
                     ]
                 }
@@ -1644,6 +1670,30 @@ def main():
                             "code": -32603,
                             "message": f"Failed to list generated projects: {result['error']}"
                         })
+                
+                elif tool_name == "create_custom_project":
+                    project_name = arguments.get("project_name", "")
+                    language = arguments.get("language", "")
+                    custom_structure = arguments.get("custom_structure", {})
+                    target_path = arguments.get("target_path", ".")
+                    
+                    if not project_name or not language:
+                        send_response(request_id, error={
+                            "code": -32602,
+                            "message": "project_name and language are required"
+                        })
+                    else:
+                        result = agent_system.create_custom_project(project_name, language, custom_structure, target_path)
+                        if result["success"]:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to create custom project: {result['error']}"
+                            })
                 
                 elif tool_name == "list_agents":
                     result = agent_system.list_agents()
