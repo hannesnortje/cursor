@@ -145,6 +145,15 @@ class CursorLLMProvider:
                 temperature=0.5,
                 api_base="cursor://anthropic"
             ),
+            # Claude Sonnet 4 (Latest)
+            LLMModel(
+                name="claude-sonnet-4",
+                provider=LLMProvider.CURSOR,
+                model_type=ModelType.CODING,
+                max_tokens=200000,
+                temperature=0.3,
+                api_base="cursor://anthropic"
+            ),
             # xAI Models
             LLMModel(
                 name="grok-beta",
