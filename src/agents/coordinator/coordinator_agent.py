@@ -110,6 +110,7 @@ class CoordinatorAgent(BaseAgent):
             self.register_message_handler("assign_task", self._handle_assign_task)
             self.register_message_handler("get_system_status", self._handle_get_system_status)
             self.register_message_handler("create_agent", self._handle_create_agent)
+            self.register_message_handler("project_generation", self._handle_project_generation_request)
             
             self.logger.info("Coordinator Agent initialization completed")
             return True
@@ -404,6 +405,239 @@ class CoordinatorAgent(BaseAgent):
             return {"success": True, "agent": result}
             
         except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # Project Generation Methods
+    async def create_project_from_template(self, template_id: str, project_name: str, 
+                                         target_path: str = ".", 
+                                         customizations: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Create a project using a template through the Project Generation Agent."""
+        try:
+            self.logger.info(f"Coordinator: Creating project '{project_name}' using template '{template_id}'")
+            
+            # Create or get Project Generation Agent
+            project_gen_agent = await self._get_or_create_project_generation_agent()
+            if not project_gen_agent:
+                return {"success": False, "error": "Failed to create Project Generation Agent"}
+            
+            # Delegate project generation to the agent
+            result = project_gen_agent.generate_project(template_id, project_name, target_path, customizations)
+            
+            if result["success"]:
+                self.logger.info(f"Coordinator: Project '{project_name}' created successfully")
+                # Create a project plan for the generated project
+                await self._create_project_plan_for_generated_project(result)
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to create project from template: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def create_custom_project(self, project_name: str, language: str, 
+                                   custom_structure: Dict[str, Any] = None,
+                                   target_path: str = ".") -> Dict[str, Any]:
+        """Create a custom project through the Project Generation Agent."""
+        try:
+            self.logger.info(f"Coordinator: Creating custom project '{project_name}' in {language}")
+            
+            # Create or get Project Generation Agent
+            project_gen_agent = await self._get_or_create_project_generation_agent()
+            if not project_gen_agent:
+                return {"success": False, "error": "Failed to create Project Generation Agent"}
+            
+            # Delegate custom project creation to the agent
+            result = project_gen_agent.create_custom_project(project_name, language, custom_structure, target_path)
+            
+            if result["success"]:
+                self.logger.info(f"Coordinator: Custom project '{project_name}' created successfully")
+                # Create a project plan for the generated project
+                await self._create_project_plan_for_generated_project(result)
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to create custom project: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def list_project_templates(self, language: Optional[str] = None, 
+                                   category: Optional[str] = None) -> Dict[str, Any]:
+        """List available project templates through the Project Generation Agent."""
+        try:
+            self.logger.info(f"Coordinator: Listing project templates (language: {language}, category: {category})")
+            
+            # Create or get Project Generation Agent
+            project_gen_agent = await self._get_or_create_project_generation_agent()
+            if not project_gen_agent:
+                return {"success": False, "error": "Failed to create Project Generation Agent"}
+            
+            # Delegate template listing to the agent
+            result = project_gen_agent.list_project_templates(language, category)
+            
+            self.logger.info(f"Coordinator: Retrieved {result.get('total_count', 0)} project templates")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to list project templates: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def customize_project_template(self, template_id: str, 
+                                       customizations: Dict[str, Any]) -> Dict[str, Any]:
+        """Customize a project template through the Project Generation Agent."""
+        try:
+            self.logger.info(f"Coordinator: Customizing template '{template_id}'")
+            
+            # Create or get Project Generation Agent
+            project_gen_agent = await self._get_or_create_project_generation_agent()
+            if not project_gen_agent:
+                return {"success": False, "error": "Failed to create Project Generation Agent"}
+            
+            # Delegate template customization to the agent
+            result = project_gen_agent.customize_project_template(template_id, customizations)
+            
+            if result["success"]:
+                self.logger.info(f"Coordinator: Template '{template_id}' customized successfully")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to customize template: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_generated_project_status(self, project_id: str) -> Dict[str, Any]:
+        """Get status of a generated project through the Project Generation Agent."""
+        try:
+            self.logger.info(f"Coordinator: Getting status for generated project '{project_id}'")
+            
+            # Create or get Project Generation Agent
+            project_gen_agent = await self._get_or_create_project_generation_agent()
+            if not project_gen_agent:
+                return {"success": False, "error": "Failed to create Project Generation Agent"}
+            
+            # Delegate status retrieval to the agent
+            result = project_gen_agent.get_project_status(project_id)
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to get generated project status: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def list_generated_projects(self) -> Dict[str, Any]:
+        """List all generated projects through the Project Generation Agent."""
+        try:
+            self.logger.info("Coordinator: Listing all generated projects")
+            
+            # Create or get Project Generation Agent
+            project_gen_agent = await self._get_or_create_project_generation_agent()
+            if not project_gen_agent:
+                return {"success": False, "error": "Failed to create Project Generation Agent"}
+            
+            # Delegate project listing to the agent
+            result = project_gen_agent.list_generated_projects()
+            
+            self.logger.info(f"Coordinator: Retrieved {result.get('total_count', 0)} generated projects")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to list generated projects: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def _get_or_create_project_generation_agent(self):
+        """Get or create a Project Generation Agent."""
+        try:
+            if not self.agent_registry:
+                return None
+            
+            # Check if Project Generation Agent already exists
+            existing_agent = self.agent_registry.get_agent_by_type("project_generation")
+            if existing_agent:
+                return existing_agent
+            
+            # Create new Project Generation Agent
+            self.logger.info("Coordinator: Creating new Project Generation Agent")
+            agent_result = await self.create_agent(
+                agent_type="project_generation",
+                name="Project Generation Agent",
+                description="Agent for generating projects from templates and custom structures"
+            )
+            
+            if agent_result.get("success"):
+                return agent_result.get("agent")
+            else:
+                self.logger.error(f"Coordinator: Failed to create Project Generation Agent: {agent_result.get('error')}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Coordinator: Error getting/creating Project Generation Agent: {e}")
+            return None
+    
+    async def _create_project_plan_for_generated_project(self, generation_result: Dict[str, Any]):
+        """Create a project plan for a generated project."""
+        try:
+            project_name = generation_result.get("project_name", "Unknown Project")
+            project_id = generation_result.get("project_id", "unknown")
+            language = generation_result.get("language", "unknown")
+            
+            # Create a basic project plan
+            project_plan = await self.create_project(
+                name=f"Generated: {project_name}",
+                description=f"Project generated using {language} template",
+                objectives=[f"Develop {project_name} using {language}"],
+                success_criteria=[f"Project structure created successfully", f"Build system configured"],
+                timeline={"estimated_duration": "1 week"},
+                resources=[f"{language} development environment"],
+                risks=["Template may not fit exact requirements"]
+            )
+            
+            if project_plan:
+                self.logger.info(f"Coordinator: Created project plan for generated project '{project_name}'")
+                # Link the generated project to the project plan
+                generation_result["project_plan_id"] = project_plan.id
+            
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to create project plan for generated project: {e}")
+    
+    async def _handle_project_generation_request(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle project generation requests."""
+        try:
+            request_type = message_data.get("type")
+            
+            if request_type == "create_from_template":
+                return await self.create_project_from_template(
+                    template_id=message_data["template_id"],
+                    project_name=message_data["project_name"],
+                    target_path=message_data.get("target_path", "."),
+                    customizations=message_data.get("customizations", {})
+                )
+            elif request_type == "create_custom":
+                return await self.create_custom_project(
+                    project_name=message_data["project_name"],
+                    language=message_data["language"],
+                    custom_structure=message_data.get("custom_structure", {}),
+                    target_path=message_data.get("target_path", ".")
+                )
+            elif request_type == "list_templates":
+                return await self.list_project_templates(
+                    language=message_data.get("language"),
+                    category=message_data.get("category")
+                )
+            elif request_type == "customize_template":
+                return await self.customize_project_template(
+                    template_id=message_data["template_id"],
+                    customizations=message_data["customizations"]
+                )
+            elif request_type == "get_status":
+                return await self.get_generated_project_status(
+                    project_id=message_data["project_id"]
+                )
+            elif request_type == "list_projects":
+                return await self.list_generated_projects()
+            else:
+                return {"success": False, "error": f"Unknown project generation request type: {request_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Coordinator: Failed to handle project generation request: {e}")
             return {"success": False, "error": str(e)}
     
     async def _execute_task_impl(self, task: AgentTask) -> Dict[str, Any]:
