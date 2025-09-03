@@ -77,22 +77,141 @@ class AgentSystem:
         try:
             logger.info(f"Coordinator chat message: {message}")
             
-            # Simple response logic - this will be enhanced with actual agent logic
-            if "start" in message.lower() or "begin" in message.lower():
-                response = "🚀 Great! I'm ready to help you start a new project. Use the 'start_project' tool to begin with the PDCA framework."
-            elif "help" in message.lower() or "what" in message.lower():
-                response = "🤖 I'm your Coordinator Agent! I can help you:\n- Start new projects with PDCA framework\n- Manage project planning\n- Coordinate with specialized agents\n- Track project progress\n\nWhat would you like to do?"
-            elif "project" in message.lower():
-                response = "📋 I can help you manage projects! Use 'start_project' to create a new one, or ask me about project planning and coordination."
-            else:
-                response = "💬 I understand your message. As your Coordinator Agent, I'm here to help with project planning and coordination. What specific assistance do you need?"
+            # Parse the message to determine the action
+            try:
+                message_data = json.loads(message)
+                message_type = message_data.get("type")
+                action = message_data.get("action")
+                
+                # Route to appropriate Coordinator Agent method
+                if message_type == "project_generation":
+                    coordinator_agent = self._get_or_create_coordinator_agent()
+                    
+                    if action == "list_templates":
+                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        project_gen_agent = self._get_or_create_project_gen_agent()
+                        result = project_gen_agent.list_project_templates(
+                            message_data.get("language"),
+                            message_data.get("category")
+                        )
+                        return {
+                            "success": True,
+                            "response": f"📋 Project templates retrieved: {result.get('total_count', 0)} templates available",
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    elif action == "create_from_template":
+                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        project_gen_agent = self._get_or_create_project_gen_agent()
+                        result = project_gen_agent.generate_project(
+                            message_data.get("template_id"),
+                            message_data.get("project_name"),
+                            message_data.get("target_path", "."),
+                            message_data.get("customizations", {})
+                        )
+                        return {
+                            "success": True,
+                            "response": f"✅ Project '{message_data.get('project_name')}' created successfully from template",
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    elif action == "create_custom":
+                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        project_gen_agent = self._get_or_create_project_gen_agent()
+                        result = project_gen_agent.create_custom_project(
+                            message_data.get("project_name"),
+                            message_data.get("language"),
+                            message_data.get("custom_structure", {}),
+                            message_data.get("target_path", ".")
+                        )
+                        return {
+                            "success": True,
+                            "response": f"✅ Custom project '{message_data.get('project_name')}' created successfully in {message_data.get('language')}",
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    elif action == "customize_template":
+                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        project_gen_agent = self._get_or_create_project_gen_agent()
+                        result = project_gen_agent.customize_project_template(
+                            message_data.get("template_id"),
+                            message_data.get("customizations", {})
+                        )
+                        return {
+                            "success": True,
+                            "response": f"✅ Template '{message_data.get('template_id')}' customized successfully",
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    elif action == "get_status":
+                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        project_gen_agent = self._get_or_create_project_gen_agent()
+                        result = project_gen_agent.get_project_status(
+                            message_data.get("project_id")
+                        )
+                        return {
+                            "success": True,
+                            "response": f"📊 Project status retrieved successfully",
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    elif action == "list_projects":
+                        # For now, use the direct Project Generation Agent to avoid async complexity
+                        project_gen_agent = self._get_or_create_project_gen_agent()
+                        result = project_gen_agent.list_generated_projects()
+                        return {
+                            "success": True,
+                            "response": f"📋 Generated projects retrieved: {result.get('total_count', 0)} projects found",
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": f"Unknown project generation action: {action}"
+                        }
+                else:
+                    # Handle other message types
+                    if "start" in message.lower() or "begin" in message.lower():
+                        response = "🚀 Great! I'm ready to help you start a new project. Use the 'start_project' tool to begin with the PDCA framework."
+                    elif "help" in message.lower() or "what" in message.lower():
+                        response = "🤖 I'm your Coordinator Agent! I can help you:\n- Start new projects with PDCA framework\n- Manage project planning\n- Coordinate with specialized agents\n- Track project progress\n\nWhat would you like to do?"
+                    elif "project" in message.lower():
+                        response = "📋 I can help you manage projects! Use 'start_project' to create a new one, or ask me about project planning and coordination."
+                    else:
+                        response = "💬 I understand your message. As your Coordinator Agent, I'm here to help with project planning and coordination. What specific assistance do you need?"
+                    
+                    return {
+                        "success": True,
+                        "response": response,
+                        "timestamp": datetime.now().isoformat(),
+                        "coordinator_status": "active"
+                    }
+                    
+            except json.JSONDecodeError:
+                # Handle plain text messages
+                if "start" in message.lower() or "begin" in message.lower():
+                    response = "🚀 Great! I'm ready to help you start a new project. Use the 'start_project' tool to begin with the PDCA framework."
+                elif "help" in message.lower() or "what" in message.lower():
+                    response = "🤖 I'm your Coordinator Agent! I can help you:\n- Start new projects with PDCA framework\n- Manage project planning\n- Coordinate with specialized agents\n- Track project progress\n\nWhat would you like to do?"
+                elif "project" in message.lower():
+                    response = "📋 I can help you manage projects! Use 'start_project' to create a new one, or ask me about project planning and coordination."
+                else:
+                    response = "💬 I understand your message. As your Coordinator Agent, I'm here to help with project planning and coordination. What specific assistance do you need?"
+                
+                return {
+                    "success": True,
+                    "response": response,
+                    "timestamp": datetime.now().isoformat(),
+                    "coordinator_status": "active"
+                }
             
-            return {
-                "success": True,
-                "response": response,
-                "timestamp": datetime.now().isoformat(),
-                "coordinator_status": "active"
-            }
         except Exception as e:
             logger.error(f"Error in coordinator chat: {e}")
             return {
@@ -493,6 +612,24 @@ class AgentSystem:
             return project_gen_agent
         except ImportError as e:
             logger.error(f"Could not import ProjectGenerationAgent: {e}")
+            raise
+    
+    def _get_or_create_coordinator_agent(self):
+        """Get or create a Coordinator Agent instance."""
+        # Check if we already have a Coordinator Agent
+        for agent in self.agents.values():
+            if hasattr(agent, 'name') and agent.name == "System Coordinator":
+                return agent
+        
+        # Create new Coordinator Agent if none exists
+        try:
+            from src.agents.coordinator.coordinator_agent import CoordinatorAgent
+            coordinator_agent = CoordinatorAgent()
+            self.register_agent(coordinator_agent)
+            logger.info("Created new Coordinator Agent")
+            return coordinator_agent
+        except ImportError as e:
+            logger.error(f"Could not import CoordinatorAgent: {e}")
             raise
 
     def _get_or_create_agile_agent(self):
@@ -1203,7 +1340,7 @@ def main():
                                 },
                                 "required": ["project_name", "language"]
                             }
-                        }
+                        },
                         {
                             "name": "coordinator_create_project_from_template",
                             "description": "Create a project using a template through the Coordinator Agent",
