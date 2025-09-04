@@ -99,7 +99,7 @@ class PortPool:
             with self.lock:
                 data = {
                     'used_ports': list(self.used_ports),
-                    'timestamp': str(datetime.now().isoformat())
+                    'timestamp': datetime.now().isoformat()
                 }
                 
                 # Ensure directory exists
