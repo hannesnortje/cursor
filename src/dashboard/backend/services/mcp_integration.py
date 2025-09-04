@@ -17,12 +17,25 @@ logger = logging.getLogger(__name__)
 class MCPIntegrationService:
     """Service for integrating dashboard with MCP server."""
     
-    def __init__(self):
+    def __init__(self, instance_id: str = None):
+        self.instance_id = instance_id
         self.mcp_server_path = Path("../../protocol_server.py")
         self.mcp_process = None
         self.is_connected = False
         self.connection_attempts = 0
         self.max_attempts = 3
+        
+        # Try to get instance info from registry
+        try:
+            from ...core.instance_registry import get_registry
+            self.registry = get_registry()
+            if instance_id:
+                self.instance_info = self.registry.get_instance(instance_id)
+            else:
+                self.instance_info = None
+        except ImportError:
+            self.registry = None
+            self.instance_info = None
         
     async def initialize(self):
         """Initialize MCP integration service."""

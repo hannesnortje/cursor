@@ -5,6 +5,7 @@ Provides real-time monitoring and visualization for the AI Agent System
 """
 
 import logging
+import os
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
@@ -49,8 +50,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize MCP integration service
-mcp_service = MCPIntegrationService()
+# Initialize MCP integration service (will be set up in startup event)
+mcp_service = None
 
 # Mount static files for frontend
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
@@ -87,9 +88,18 @@ async def startup_event():
         logger.info("Dashboard will use CDN fallback for Lit 3")
     
     # Initialize MCP integration service
+    global mcp_service
     try:
-        await mcp_service.initialize()
-        logger.info("✅ MCP integration service initialized successfully")
+        # Get instance ID from environment
+        instance_id = os.environ.get('MCP_INSTANCE_ID')
+        if instance_id:
+            mcp_service = MCPIntegrationService(instance_id)
+            await mcp_service.initialize()
+            logger.info(f"✅ MCP integration service initialized for instance {instance_id}")
+        else:
+            mcp_service = MCPIntegrationService()
+            await mcp_service.initialize()
+            logger.info("✅ MCP integration service initialized (no specific instance)")
     except Exception as e:
         logger.warning(f"⚠️ MCP integration service initialization failed: {e}")
         logger.info("Dashboard will run with limited functionality")
@@ -264,11 +274,33 @@ async def get_lit_health():
         raise HTTPException(status_code=500, detail="Failed to get health status")
 
 if __name__ == "__main__":
-    logger.info("🚀 Starting Dashboard Backend on port 5000...")
+    import argparse
+    import os
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="AI Agent System Dashboard Backend")
+    parser.add_argument("--port", type=int, default=5000, help="Port to run the dashboard on")
+    parser.add_argument("--instance-id", type=str, help="MCP instance ID this dashboard belongs to")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
+    parser.add_argument("--log-level", type=str, default="info", help="Log level")
+    
+    args = parser.parse_args()
+    
+    # Get port from environment or arguments
+    port = int(os.environ.get('DASHBOARD_PORT', args.port))
+    instance_id = os.environ.get('MCP_INSTANCE_ID', args.instance_id)
+    
+    logger.info(f"🚀 Starting Dashboard Backend for instance {instance_id} on port {port}...")
+    
+    # Update app title with instance info
+    if instance_id:
+        app.title = f"AI Agent System Dashboard - Instance {instance_id}"
+    
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=5000,
-        reload=True,
-        log_level="info"
+        host=args.host,
+        port=port,
+        reload=args.reload,
+        log_level=args.log_level
     )

@@ -70,8 +70,41 @@ class AgentSystem:
                 )
                 self.instance_id = self.instance_info.instance_id
                 logger.info(f"Initialized instance {self.instance_id} with dashboard port {self.instance_info.dashboard_port}")
+                
+                # Start dashboard spawning in background
+                self._start_dashboard_spawning()
+                
             except Exception as e:
                 logger.error(f"Failed to initialize instance: {e}")
+    
+    def _start_dashboard_spawning(self):
+        """Start dashboard spawning in background thread."""
+        try:
+            import threading
+            from src.dashboard.dashboard_spawner import spawn_dashboard_for_instance
+            
+            def spawn_dashboard():
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(spawn_dashboard_for_instance(
+                        self.instance_id,
+                        self.instance_info.dashboard_port,
+                        self.instance_info
+                    ))
+                except Exception as e:
+                    logger.error(f"Failed to spawn dashboard: {e}")
+                finally:
+                    loop.close()
+            
+            # Start dashboard spawning in background thread
+            dashboard_thread = threading.Thread(target=spawn_dashboard, daemon=True)
+            dashboard_thread.start()
+            logger.info(f"Started dashboard spawning thread for instance {self.instance_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to start dashboard spawning: {e}")
     
     def get_instance_info(self) -> Dict[str, Any]:
         """Get instance information."""
@@ -2444,6 +2477,24 @@ def main():
                                 "properties": {},
                                 "required": []
                             }
+                        },
+                        {
+                            "name": "get_dashboard_status",
+                            "description": "Get status of dashboard for current instance",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_all_dashboards_status",
+                            "description": "Get status of all active dashboards",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
                         }
                     ]
                 }
@@ -3421,6 +3472,44 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to get registry status: {str(e)}"
+                        })
+                
+                elif tool_name == "get_dashboard_status":
+                    try:
+                        from src.dashboard.dashboard_spawner import get_dashboard_spawner
+                        spawner = get_dashboard_spawner()
+                        status = spawner.get_dashboard_status(agent_system.instance_id)
+                        
+                        if status:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Dashboard Status:\n{json.dumps(status, indent=2)}"}],
+                                "structuredContent": status
+                            })
+                        else:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"No dashboard found for instance {agent_system.instance_id}"}],
+                                "structuredContent": {"status": "not_found", "instance_id": agent_system.instance_id}
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get dashboard status: {str(e)}"
+                        })
+                
+                elif tool_name == "get_all_dashboards_status":
+                    try:
+                        from src.dashboard.dashboard_spawner import get_dashboard_spawner
+                        spawner = get_dashboard_spawner()
+                        status = spawner.get_all_dashboards_status()
+                        
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"All Dashboards Status:\n{json.dumps(status, indent=2)}"}],
+                            "structuredContent": status
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get all dashboards status: {str(e)}"
                         })
                 
                 else:
