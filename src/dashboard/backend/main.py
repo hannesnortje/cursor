@@ -53,10 +53,10 @@ app.add_middleware(
 mcp_service = MCPIntegrationService()
 
 # Mount static files for frontend
-app.mount("/static", StaticFiles(directory="src/dashboard/frontend"), name="static")
+app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 
 # Mount current Lit 3 files
-app.mount("/static/lib/lit", StaticFiles(directory="src/dashboard/frontend/lib/lit/current"), name="lit_current")
+app.mount("/static/lib/lit", StaticFiles(directory="../frontend/lib/lit/current"), name="lit_current")
 
 # Include API routers
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])

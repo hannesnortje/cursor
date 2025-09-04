@@ -18,7 +18,7 @@ class MCPIntegrationService:
     """Service for integrating dashboard with MCP server."""
     
     def __init__(self):
-        self.mcp_server_path = Path("protocol_server.py")
+        self.mcp_server_path = Path("../../protocol_server.py")
         self.mcp_process = None
         self.is_connected = False
         self.connection_attempts = 0
