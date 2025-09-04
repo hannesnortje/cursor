@@ -29,11 +29,25 @@ logger = logging.getLogger("enhanced-mcp-server")
 class AgentSystem:
     """Core agent system management class."""
     
-    def __init__(self):
+    def __init__(self, instance_id: str = None):
+        # Instance management
+        self.instance_id = instance_id
+        self.instance_info = None
+        
+        # Core system state
         self.agents = {}
         self.projects = {}
         self.system_status = "initializing"
         self.start_time = datetime.now()
+        
+        # Initialize instance registry if available
+        try:
+            from src.core.instance_registry import get_registry
+            self.registry = get_registry()
+            logger.info("Instance registry integration available")
+        except ImportError:
+            self.registry = None
+            logger.warning("Instance registry not available")
         
         # Initialize vector store if available
         self.vector_store = None
@@ -45,20 +59,52 @@ class AgentSystem:
                 logger.warning(f"Failed to initialize vector store: {e}")
                 self.vector_store = None
     
+    def initialize_instance(self, cursor_client_id: str = None, working_directory: str = None):
+        """Initialize instance in registry."""
+        if self.registry and not self.instance_info:
+            try:
+                self.instance_info = self.registry.register_instance(
+                    instance_id=self.instance_id,
+                    cursor_client_id=cursor_client_id,
+                    working_directory=working_directory
+                )
+                self.instance_id = self.instance_info.instance_id
+                logger.info(f"Initialized instance {self.instance_id} with dashboard port {self.instance_info.dashboard_port}")
+            except Exception as e:
+                logger.error(f"Failed to initialize instance: {e}")
+    
+    def get_instance_info(self) -> Dict[str, Any]:
+        """Get instance information."""
+        if self.instance_info:
+            return self.instance_info.to_dict()
+        return {
+            "instance_id": self.instance_id,
+            "status": "not_registered",
+            "dashboard_port": None,
+            "dashboard_url": None
+        }
+    
     def get_system_health(self) -> Dict[str, Any]:
         """Get system health status."""
         uptime = (datetime.now() - self.start_time).total_seconds()
-        return {
+        health = {
             "status": self.system_status,
             "uptime_seconds": uptime,
             "active_agents": len(self.agents),
             "active_projects": len(self.projects),
+            "instance_id": self.instance_id,
             "vector_store": {
                 "available": self.vector_store is not None,
                 "status": "connected" if self.vector_store else "unavailable"
             },
             "timestamp": datetime.now().isoformat()
         }
+        
+        # Add instance info if available
+        if self.instance_info:
+            health["instance_info"] = self.get_instance_info()
+        
+        return health
     
     def start_project(self, project_type: str, 
                      project_name: str) -> Dict[str, Any]:
@@ -1507,6 +1553,23 @@ def send_notification(method, params=None):
 def main():
     logger.info("Starting enhanced MCP server with agent system...")
     
+    # Initialize instance management
+    import os
+    cursor_client_id = os.environ.get('CURSOR_CLIENT_ID', f"cursor_{os.getpid()}")
+    working_directory = os.getcwd()
+    
+    # Initialize agent system with instance management
+    global agent_system
+    agent_system = AgentSystem()
+    agent_system.initialize_instance(
+        cursor_client_id=cursor_client_id,
+        working_directory=working_directory
+    )
+    
+    logger.info(f"Initialized MCP server instance {agent_system.instance_id}")
+    if agent_system.instance_info:
+        logger.info(f"Dashboard will be available at: {agent_system.instance_info.dashboard_url}")
+    
     # Enhanced initialization response with agent tools
     init_response = {
         "protocolVersion": "2024-11-05",
@@ -2361,6 +2424,25 @@ def main():
                                     "coordination_strategy": {"type": "string", "description": "Strategy for model coordination (sequential, parallel, hybrid)"}
                                 },
                                 "required": ["task_description", "required_capabilities"]
+                            }
+                        },
+                        # Instance Management Tools
+                        {
+                            "name": "get_instance_info",
+                            "description": "Get information about the current MCP server instance",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_registry_status",
+                            "description": "Get status of the instance registry and all running instances",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
                             }
                         }
                     ]
@@ -3307,6 +3389,39 @@ def main():
                                 "code": -32603,
                                 "message": f"Failed to orchestrate LLM models: {result['error']}"
                             })
+                
+                # Instance Management Tools
+                elif tool_name == "get_instance_info":
+                    try:
+                        instance_info = agent_system.get_instance_info()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Instance Information:\n{json.dumps(instance_info, indent=2)}"}],
+                            "structuredContent": instance_info
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get instance info: {str(e)}"
+                        })
+                
+                elif tool_name == "get_registry_status":
+                    try:
+                        if agent_system.registry:
+                            status = agent_system.registry.get_registry_status()
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Registry Status:\n{json.dumps(status, indent=2)}"}],
+                                "structuredContent": status
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Instance registry not available"
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get registry status: {str(e)}"
+                        })
                 
                 else:
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
