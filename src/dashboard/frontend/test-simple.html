@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Test - Simple</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 40px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .test-container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .status { 
+            background: rgba(0,255,0,0.2); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px 0;
+        }
+        .error { 
+            background: rgba(255,0,0,0.2); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Dashboard Component Test</h1>
+        <p>Testing individual components...</p>
+        
+        <div class="status">
+            <h3>✅ Test Page Loaded</h3>
+            <p>This page should show component test results</p>
+        </div>
+        
+        <div id="component-test">
+            <h3>🔍 Component Test Results</h3>
+            <div id="test-results">Loading...</div>
+        </div>
+        
+        <div id="dashboard-test">
+            <h3>🤖 Dashboard App Test</h3>
+            <dashboard-app></dashboard-app>
+        </div>
+    </div>
+
+    <!-- Test script -->
+    <script>
+        console.log('🧪 Test page loaded');
+        
+        // Test component registration
+        setTimeout(() => {
+            const results = document.getElementById('test-results');
+            const components = [
+                'dashboard-app',
+                'dashboard-header', 
+                'system-health-card',
+                'agents-status-card',
+                'performance-card',
+                'quick-actions-card',
+                'dashboard-footer'
+            ];
+            
+            let html = '';
+            components.forEach(component => {
+                const isRegistered = customElements.get(component);
+                const status = isRegistered ? '✅ Registered' : '❌ Not Registered';
+                const color = isRegistered ? 'green' : 'red';
+                html += `<p style="color: ${color};">${component}: ${status}</p>`;
+            });
+            
+            results.innerHTML = html;
+        }, 1000);
+    </script>
+
+    <!-- Load components -->
+    <script type="module" src="/static/main.js"></script>
+</body>
+</html>
