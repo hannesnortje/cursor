@@ -2495,6 +2495,24 @@ def main():
                                 "properties": {},
                                 "required": []
                             }
+                        },
+                        {
+                            "name": "get_browser_status",
+                            "description": "Get browser manager status and available browsers",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "open_dashboard_browser",
+                            "description": "Manually open dashboard in browser for current instance",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
                         }
                     ]
                 }
@@ -3510,6 +3528,43 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to get all dashboards status: {str(e)}"
+                        })
+                
+                elif tool_name == "get_browser_status":
+                    try:
+                        from src.dashboard.browser_manager import get_browser_status
+                        status = get_browser_status()
+                        
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Browser Status:\n{json.dumps(status, indent=2)}"}],
+                            "structuredContent": status
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get browser status: {str(e)}"
+                        })
+                
+                elif tool_name == "open_dashboard_browser":
+                    try:
+                        from src.dashboard.dashboard_spawner import get_dashboard_spawner
+                        spawner = get_dashboard_spawner()
+                        success = spawner.open_dashboard_browser(agent_system.instance_id)
+                        
+                        if success:
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"✅ Dashboard opened in browser for instance {agent_system.instance_id}"}],
+                                "structuredContent": {"success": True, "instance_id": agent_system.instance_id}
+                            })
+                        else:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": f"Failed to open dashboard in browser for instance {agent_system.instance_id}"
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to open dashboard browser: {str(e)}"
                         })
                 
                 else:

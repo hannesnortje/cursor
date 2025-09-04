@@ -16,6 +16,8 @@ from datetime import datetime
 
 from ..core.instance_info import InstanceInfo, InstanceStatus
 from ..core.instance_registry import get_registry
+from .browser_manager import get_browser_manager, open_dashboard_in_browser
+from .browser_config import get_browser_config, should_auto_open_browser
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,9 @@ class DashboardSpawner:
         self.registry = get_registry()
         self.dashboard_backend_path = Path("src/dashboard/backend/main.py")
         self.lock = threading.Lock()
+        self.browser_manager = get_browser_manager()
+        self.browser_config = get_browser_config()
+        self.auto_open_browser = True  # Enable automatic browser opening by default
         
     async def spawn_dashboard(self, instance_id: str, port: int, mcp_instance_info: InstanceInfo) -> bool:
         """
@@ -76,6 +81,12 @@ class DashboardSpawner:
                         dashboard_process=dashboard_config['process'],
                         config={'dashboard_spawned': True, 'dashboard_port': port}
                     )
+                    
+                    # Open browser automatically if enabled
+                    if self.auto_open_browser and should_auto_open_browser(len(self.active_dashboards)):
+                        # Add delay before opening browser
+                        time.sleep(self.browser_config.auto_open_delay)
+                        self._open_dashboard_in_browser(instance_id, port)
                     
                     return True
                 else:
@@ -156,6 +167,45 @@ class DashboardSpawner:
         
         logger.warning(f"Dashboard on port {port} did not start within {timeout} seconds")
         return False
+    
+    def _open_dashboard_in_browser(self, instance_id: str, port: int):
+        """Open dashboard in browser."""
+        try:
+            url = f"http://localhost:{port}"
+            success = open_dashboard_in_browser(url, instance_id)
+            
+            if success:
+                logger.info(f"🌐 Dashboard opened in browser for instance {instance_id}: {url}")
+            else:
+                logger.warning(f"⚠️ Failed to open dashboard in browser for instance {instance_id}")
+                
+        except Exception as e:
+            logger.error(f"Error opening dashboard in browser for instance {instance_id}: {e}")
+    
+    def open_dashboard_browser(self, instance_id: str) -> bool:
+        """
+        Manually open dashboard in browser for an instance.
+        
+        Args:
+            instance_id: Instance ID
+            
+        Returns:
+            True if browser opened successfully
+        """
+        try:
+            with self.lock:
+                if instance_id not in self.active_dashboards:
+                    logger.warning(f"No dashboard found for instance {instance_id}")
+                    return False
+                
+                dashboard_config = self.active_dashboards[instance_id]
+                port = dashboard_config['port']
+                
+                return self._open_dashboard_in_browser(instance_id, port)
+                
+        except Exception as e:
+            logger.error(f"Error opening dashboard browser for instance {instance_id}: {e}")
+            return False
     
     def stop_dashboard(self, instance_id: str) -> bool:
         """
