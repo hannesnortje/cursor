@@ -5,7 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Agent System Dashboard</title>
     
-        <!-- Lit 3 Components -->
+    <!-- Import Map for Lit 3 - Local copy with offline capability -->
+    <script type="importmap">
+    {
+      "imports": {
+        "lit": "/static/lib/lit/current/lit-core.min.js"
+      }
+    }
+    </script>
+    
+    <!-- Offline Lit 3 Cache with localStorage -->
+    <script src="/static/offline-lit-cache.js"></script>
+    
+    <!-- Lit 3 Components -->
     <script type="module" src="/static/main.js"></script>
 </head>
 <body>
