@@ -141,6 +141,10 @@ class AgentSystem:
         try:
             logger.info(f"Coordinator chat message: {message}")
             
+            # Handle natural language conversation for PDCA planning
+            if self._is_pdca_planning_message(message):
+                return self._handle_pdca_planning(message)
+            
             # Parse the message to determine the action
             try:
                 message_data = json.loads(message)
@@ -282,6 +286,132 @@ class AgentSystem:
                 "success": False,
                 "error": str(e)
             }
+    
+    def _is_pdca_planning_message(self, message: str) -> bool:
+        """Check if message is related to PDCA planning."""
+        pdca_keywords = [
+            "plan", "planning", "pdca", "project", "dashboard", "react", "typescript",
+            "start", "create", "build", "develop", "purpose", "goals", "objectives",
+            "requirements", "scope", "timeline", "strategy", "implementation"
+        ]
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in pdca_keywords)
+    
+    def _handle_pdca_planning(self, message: str) -> Dict[str, Any]:
+        """Handle PDCA planning conversation."""
+        try:
+            message_lower = message.lower()
+            
+            # Check if this is an initial project request
+            if any(word in message_lower for word in ["start", "create", "build", "develop", "new project"]):
+                return self._start_pdca_planning_phase(message)
+            
+            # Check if user is providing project details
+            elif any(word in message_lower for word in ["purpose", "goal", "objective", "dashboard", "react", "typescript"]):
+                return self._continue_pdca_planning(message)
+            
+            # Default PDCA response
+            else:
+                return self._provide_pdca_guidance(message)
+                
+        except Exception as e:
+            logger.error(f"Error in PDCA planning: {e}")
+            return {
+                "success": False,
+                "error": f"PDCA planning error: {str(e)}"
+            }
+    
+    def _start_pdca_planning_phase(self, message: str) -> Dict[str, Any]:
+        """Start the PDCA planning phase."""
+        return {
+            "success": True,
+            "response": """🎯 Starting PDCA Framework for your project!
+
+📋 PLAN Phase - Let me gather the essential information:
+
+1. **Project Goals & Objectives:**
+   - What is the main purpose of this project?
+   - Who are the target users?
+   - What key features do you want to include?
+
+2. **Current State Analysis:**
+   - What existing solutions or platforms are you building upon?
+   - What are the main challenges you're trying to solve?
+
+3. **Target State Definition:**
+   - What does success look like for this project?
+   - What specific outcomes do you want to achieve?
+
+4. **Implementation Strategy:**
+   - What is your preferred timeline?
+   - Do you have any specific technical requirements?
+   - What's your team size and expertise?
+
+Please share your thoughts on these questions, and I'll guide you through the planning process.""",
+            "timestamp": datetime.now().isoformat(),
+            "coordinator_status": "active",
+            "pdca_phase": "plan",
+            "next_steps": "awaiting_project_details"
+        }
+    
+    def _continue_pdca_planning(self, message: str) -> Dict[str, Any]:
+        """Continue PDCA planning based on user input."""
+        return {
+            "success": True,
+            "response": """✅ Thank you for the project information! Now let's discuss the **implementation process** and **agent strategy**:
+
+🤖 **Proposed Core Agents:**
+- **Agile/Scrum Agent**: Sprint planning, user stories, retrospectives
+- **Frontend Agent**: React/TypeScript components, UI/UX
+- **Backend Agent**: API development, database design
+- **Testing Agent**: Test strategies, coverage, automation
+- **Documentation Agent**: Project docs, API documentation
+
+🔧 **Specialized Agents to Consider:**
+- **Git Agent**: Branch management, commit strategies, conflict resolution
+- **Logging Agent**: Application logging, monitoring, debugging
+- **Security Agent**: Security reviews, vulnerability scanning
+- **Performance Agent**: Performance optimization, monitoring
+- **Deployment Agent**: CI/CD, deployment automation
+
+💭 **Questions for You:**
+1. Which specialized agents would be most valuable for your project?
+2. Do you have any specific workflows or processes you'd like automated?
+3. Any particular areas where you'd like extra support (logging, git management, etc.)?
+4. How would you like the agents to collaborate and communicate?
+
+Let's discuss this together and customize the agent team for your specific needs!""",
+            "timestamp": datetime.now().isoformat(),
+            "coordinator_status": "active",
+            "pdca_phase": "plan",
+            "next_steps": "agent_strategy_discussion"
+        }
+    
+    def _provide_pdca_guidance(self, message: str) -> Dict[str, Any]:
+        """Provide general PDCA guidance."""
+        return {
+            "success": True,
+            "response": """🎯 I'm here to help you with project planning using the PDCA framework!
+
+**PDCA Framework Overview:**
+- **PLAN**: Define objectives, analyze current state, plan solutions
+- **DO**: Implement the plan with specialized agents
+- **CHECK**: Monitor progress, measure results, identify issues
+- **ACT**: Standardize successful approaches, improve processes
+
+**How can I help you today?**
+- Start a new project with PDCA planning
+- Create specialized agents for your development needs
+- Plan sprints and user stories
+- Coordinate between different agents
+- Monitor project progress and metrics
+
+What would you like to work on?""",
+            "timestamp": datetime.now().isoformat(),
+            "coordinator_status": "active",
+            "pdca_phase": "guidance",
+            "next_steps": "awaiting_user_choice"
+        }
     
     def start_communication_system(self) -> Dict[str, Any]:
         """Start the communication system (WebSocket + Redis)."""
