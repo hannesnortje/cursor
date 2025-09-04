@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { litLoader, getLit } from '../lib/lit-loader.js';
 
 // Type declarations for Lit 3
 declare global {
@@ -18,21 +18,24 @@ interface Agent {
   error_count?: number;
 }
 
-export class AgentsStatusCard extends LitElement {
-  static properties = {
-    agents: { type: Array }
-  };
+// Wait for Lit to be loaded, then define the component
+getLit().then(async ({ LitElement, html, css }) => {
 
-  private agents: Agent[] = [];
+  export class AgentsStatusCard extends LitElement {
+    static properties = {
+      agents: { type: Array }
+    };
 
-  constructor() {
-    super();
-    this.agents = [];
-  }
+    private agents: Agent[] = [];
 
-  render() {
-    if (!this.agents || this.agents.length === 0) {
-      return html`
+    constructor() {
+      super();
+      this.agents = [];
+    }
+
+    render() {
+      if (!this.agents || this.agents.length === 0) {
+        return html`
         <div class="agents-card loading">
           <div class="card-header">
             <h3>🤖 Agents Status</h3>
@@ -47,13 +50,13 @@ export class AgentsStatusCard extends LitElement {
           </div>
         </div>
       `;
-    }
+      }
 
-    const statusCounts = this.getStatusCounts();
-    const operationalCount = statusCounts.operational || 0;
-    const totalCount = this.agents.length;
+      const statusCounts = this.getStatusCounts();
+      const operationalCount = statusCounts.operational || 0;
+      const totalCount = this.agents.length;
 
-    return html`
+      return html`
       <div class="agents-card">
         <div class="card-header">
           <h3>🤖 Agents Status</h3>
@@ -101,25 +104,25 @@ export class AgentsStatusCard extends LitElement {
         </div>
       </div>
     `;
-  }
+    }
 
-  private getStatusCounts(): Record<string, number> {
-    const counts: Record<string, number> = {};
-    
-    this.agents.forEach(agent => {
-      const status = agent.status.toLowerCase();
-      counts[status] = (counts[status] || 0) + 1;
-    });
-    
-    return counts;
-  }
+    private getStatusCounts(): Record<string, number> {
+      const counts: Record<string, number> = {};
 
-  private renderAgentItem(agent: Agent): any {
-    const statusClass = this.getAgentStatusClass(agent.status);
-    const statusIcon = this.getAgentStatusIcon(agent.status);
-    const lastActivity = new Date(agent.last_activity).toLocaleTimeString();
+      this.agents.forEach(agent => {
+        const status = agent.status.toLowerCase();
+        counts[status] = (counts[status] || 0) + 1;
+      });
 
-    return html`
+      return counts;
+    }
+
+    private renderAgentItem(agent: Agent): any {
+      const statusClass = this.getAgentStatusClass(agent.status);
+      const statusIcon = this.getAgentStatusIcon(agent.status);
+      const lastActivity = new Date(agent.last_activity).toLocaleTimeString();
+
+      return html`
       <div class="agent-item ${statusClass}">
         <div class="agent-header">
           <div class="agent-info">
@@ -157,44 +160,44 @@ export class AgentsStatusCard extends LitElement {
         </div>
       </div>
     `;
-  }
-
-  private getAgentStatusClass(status: string): string {
-    switch (status.toLowerCase()) {
-      case 'operational':
-        return 'operational';
-      case 'degraded':
-        return 'degraded';
-      case 'down':
-        return 'down';
-      case 'limited':
-        return 'limited';
-      default:
-        return 'unknown';
     }
-  }
 
-  private getAgentStatusIcon(status: string): string {
-    switch (status.toLowerCase()) {
-      case 'operational':
-        return '🟢';
-      case 'degraded':
-        return '🟡';
-      case 'down':
-        return '🔴';
-      case 'limited':
-        return '🟠';
-      default:
-        return '❓';
+    private getAgentStatusClass(status: string): string {
+      switch (status.toLowerCase()) {
+        case 'operational':
+          return 'operational';
+        case 'degraded':
+          return 'degraded';
+        case 'down':
+          return 'down';
+        case 'limited':
+          return 'limited';
+        default:
+          return 'unknown';
+      }
     }
-  }
 
-  private viewAllAgents(): void {
-    // TODO: Implement view all agents modal
-    console.log('View all agents clicked');
-  }
+    private getAgentStatusIcon(status: string): string {
+      switch (status.toLowerCase()) {
+        case 'operational':
+          return '🟢';
+        case 'degraded':
+          return '🟡';
+        case 'down':
+          return '🔴';
+        case 'limited':
+          return '🟠';
+        default:
+          return '❓';
+      }
+    }
 
-  static styles = css`
+    private viewAllAgents(): void {
+      // TODO: Implement view all agents modal
+      console.log('View all agents clicked');
+    }
+
+    static styles = css`
     .agents-card {
       background: rgba(255, 255, 255, 0.1);
       border-radius: 1rem;
@@ -478,6 +481,37 @@ export class AgentsStatusCard extends LitElement {
       }
     }
   `;
-}
+  }
 
-customElements.define('agents-status-card', AgentsStatusCard);
+  // Register the component
+  customElements.define('agents-status-card', AgentsStatusCard);
+
+  console.log('✅ Agents Status Card component registered successfully');
+
+}).catch(error => {
+  console.error('❌ Failed to load Lit 3 for Agents Status Card:', error);
+
+  // Create a fallback component that shows the error
+  class AgentsStatusCardError extends HTMLElement {
+    connectedCallback() {
+      this.innerHTML = `
+        <div style="
+          padding: 1rem;
+          background: rgba(244, 67, 54, 0.1);
+          border: 1px solid #f44336;
+          border-radius: 0.5rem;
+          color: #f44336;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        ">
+          <div style="font-weight: bold; margin-bottom: 0.5rem;">❌ Agents Status Card Failed</div>
+          <div style="font-size: 0.9rem;">Error: ${error.message}</div>
+          <div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.8;">
+            Check console for more details
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  customElements.define('agents-status-card', AgentsStatusCardError);
+});

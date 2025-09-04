@@ -7,9 +7,9 @@ Provides real-time monitoring and visualization for the AI Agent System
 import logging
 from datetime import datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -18,11 +18,13 @@ try:
     from .api import agents, system, performance, websocket
     from .models.dashboard import DashboardStatus
     from .services.mcp_integration import MCPIntegrationService
+    from .services.advanced_lit_manager import advanced_lit_manager
 except ImportError:
     # For direct execution, import from current directory
     from api import agents, system, performance, websocket
     from models.dashboard import DashboardStatus
     from services.mcp_integration import MCPIntegrationService
+    from services.advanced_lit_manager import advanced_lit_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -51,7 +53,10 @@ app.add_middleware(
 mcp_service = MCPIntegrationService()
 
 # Mount static files for frontend
-app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+app.mount("/static", StaticFiles(directory="src/dashboard/frontend"), name="static")
+
+# Mount current Lit 3 files
+app.mount("/static/lib/lit", StaticFiles(directory="src/dashboard/frontend/lib/lit/current"), name="lit_current")
 
 # Include API routers
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
@@ -63,6 +68,25 @@ app.include_router(websocket.router, prefix="/api/websocket", tags=["websocket"]
 async def startup_event():
     """Initialize dashboard on startup."""
     logger.info("🚀 Dashboard Backend starting up...")
+    
+    # Initialize Advanced Lit 3 manager
+    try:
+        logger.info("📦 Initializing Advanced Lit 3 manager...")
+        success = await advanced_lit_manager.ensure_lit_available()
+        if success:
+            info = advanced_lit_manager.get_lit_info()
+            logger.info(f"✅ Lit 3 ready: {info['size']} bytes, version: {info['version']}")
+            
+            # Start background tasks
+            await advanced_lit_manager.start_background_tasks()
+            logger.info("🚀 Started background tasks for automatic updates and health checks")
+        else:
+            logger.warning("⚠️ Lit 3 initialization failed, will use CDN fallback")
+    except Exception as e:
+        logger.warning(f"⚠️ Advanced Lit 3 manager initialization failed: {e}")
+        logger.info("Dashboard will use CDN fallback for Lit 3")
+    
+    # Initialize MCP integration service
     try:
         await mcp_service.initialize()
         logger.info("✅ MCP integration service initialized successfully")
@@ -74,6 +98,14 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown."""
     logger.info("🛑 Dashboard Backend shutting down...")
+    
+    # Stop background tasks
+    try:
+        await advanced_lit_manager.stop_background_tasks()
+        logger.info("✅ Advanced Lit 3 manager background tasks stopped")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to stop Lit manager background tasks: {e}")
+    
     await mcp_service.cleanup()
 
 @app.get("/", response_class=HTMLResponse)
@@ -81,7 +113,7 @@ async def dashboard_home():
     """Serve the main dashboard page."""
     try:
         # Read the component-based HTML file
-        with open("../frontend/index.html", "r") as f:
+        with open("src/dashboard/frontend/index.html", "r") as f:
             return f.read()
     except FileNotFoundError:
         # Fallback to simple HTML if file not found
@@ -144,6 +176,92 @@ async def health_check():
         "service": "dashboard_backend",
         "port": 5000
     }
+
+@app.get("/api/lit/info")
+async def get_lit_info():
+    """Get comprehensive Lit 3 library information."""
+    try:
+        info = advanced_lit_manager.get_lit_info()
+        return {
+            "status": "success",
+            "lit_info": info,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get Lit info: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get Lit information")
+
+@app.get("/api/lit/download")
+async def download_lit():
+    """Force download/update of Lit 3 library."""
+    try:
+        success = await advanced_lit_manager.force_update()
+        if success:
+            info = advanced_lit_manager.get_lit_info()
+            return {
+                "status": "success",
+                "message": "Lit 3 library updated successfully",
+                "lit_info": info,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to download Lit 3 library")
+    except Exception as e:
+        logger.error(f"Failed to download Lit: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to download Lit: {str(e)}")
+
+@app.get("/api/lit/versions")
+async def get_available_versions():
+    """Get list of available Lit 3 versions."""
+    try:
+        versions = advanced_lit_manager.get_available_versions()
+        return {
+            "status": "success",
+            "versions": versions,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get versions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get available versions")
+
+@app.post("/api/lit/rollback/{version}")
+async def rollback_to_version(version: str):
+    """Rollback to a specific Lit 3 version."""
+    try:
+        success = await advanced_lit_manager.rollback_to_version(version)
+        if success:
+            info = advanced_lit_manager.get_lit_info()
+            return {
+                "status": "success",
+                "message": f"Successfully rolled back to version {version}",
+                "lit_info": info,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Failed to rollback to version {version}")
+    except Exception as e:
+        logger.error(f"Failed to rollback to version {version}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to rollback: {str(e)}")
+
+@app.get("/api/lit/health")
+async def get_lit_health():
+    """Get Lit 3 system health and metrics."""
+    try:
+        info = advanced_lit_manager.get_lit_info()
+        health_status = {
+            "status": "healthy" if info["available"] else "unhealthy",
+            "current_version": info.get("version", "unknown"),
+            "uptime_seconds": info.get("uptime", 0),
+            "cdn_sources_healthy": sum(1 for source in info.get("cdn_sources", []) if source["healthy"]),
+            "total_cdn_sources": len(info.get("cdn_sources", [])),
+            "metrics": info.get("metrics", {}),
+            "recent_events": info.get("recent_events", []),
+            "timestamp": datetime.now().isoformat()
+        }
+        return health_status
+    except Exception as e:
+        logger.error(f"Failed to get health status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get health status")
 
 if __name__ == "__main__":
     logger.info("🚀 Starting Dashboard Backend on port 5000...")

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Lit Features Test - AI Agent System Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0.5rem 0 0 0;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+        }
+        
+        .feature-card h3 {
+            margin: 0 0 1rem 0;
+            color: #4CAF50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.error {
+            background: #f44336;
+        }
+        
+        .status-indicator.warning {
+            background: #ff9800;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .info {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+        
+        .button {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .button:hover {
+            background: rgba(76, 175, 80, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .button.danger {
+            background: rgba(244, 67, 54, 0.2);
+            border-color: #f44336;
+            color: #f44336;
+        }
+        
+        .button.danger:hover {
+            background: rgba(244, 67, 54, 0.3);
+        }
+        
+        .button.warning {
+            background: rgba(255, 152, 0, 0.2);
+            border-color: #ff9800;
+            color: #ff9800;
+        }
+        
+        .button.warning:hover {
+            background: rgba(255, 152, 0, 0.3);
+        }
+        
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+        }
+        
+        .log-entry.success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+        
+        .log-entry.error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+        
+        .log-entry.warning {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ff9800;
+        }
+        
+        .log-entry.info {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .metric {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .metric-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 0.25rem;
+        }
+        
+        .versions-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        
+        .version-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .version-item:last-child {
+            border-bottom: none;
+        }
+        
+        .version-active {
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 0.25rem;
+        }
+        
+        .cdn-source {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .cdn-source:last-child {
+            border-bottom: none;
+        }
+        
+        .cdn-healthy {
+            color: #4CAF50;
+        }
+        
+        .cdn-unhealthy {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Advanced Lit Features</h1>
+            <p>Testing automatic updates, version management, and monitoring</p>
+        </div>
+        
+        <div class="features-grid">
+            <!-- System Health -->
+            <div class="feature-card">
+                <h3>🏥 System Health</h3>
+                <div class="status">
+                    <div class="status-indicator" id="health-status"></div>
+                    <span id="health-status-text">Checking system health...</span>
+                </div>
+                <div class="info">
+                    Monitor CDN sources, performance metrics, and system status.
+                </div>
+                <button class="button" onclick="checkSystemHealth()">Check Health</button>
+                <button class="button" onclick="refreshHealth()">Refresh</button>
+                
+                <div class="metrics-grid" id="health-metrics">
+                    <!-- Metrics will be populated here -->
+                </div>
+                
+                <div class="log" id="health-log">
+                    <div class="log-entry info">⏳ Initializing health monitoring...</div>
+                </div>
+            </div>
+            
+            <!-- Version Management -->
+            <div class="feature-card">
+                <h3>📦 Version Management</h3>
+                <div class="status">
+                    <div class="status-indicator" id="version-status"></div>
+                    <span id="version-status-text">Loading versions...</span>
+                </div>
+                <div class="info">
+                    Manage multiple Lit 3 versions with rollback capabilities.
+                </div>
+                <button class="button" onclick="loadVersions()">Load Versions</button>
+                <button class="button warning" onclick="forceUpdate()">Force Update</button>
+                
+                <div class="versions-list" id="versions-list">
+                    <!-- Versions will be populated here -->
+                </div>
+                
+                <div class="log" id="version-log">
+                    <div class="log-entry info">⏳ Loading version information...</div>
+                </div>
+            </div>
+            
+            <!-- CDN Sources -->
+            <div class="feature-card">
+                <h3>🌐 CDN Sources</h3>
+                <div class="status">
+                    <div class="status-indicator" id="cdn-status"></div>
+                    <span id="cdn-status-text">Checking CDN sources...</span>
+                </div>
+                <div class="info">
+                    Monitor CDN health, response times, and circuit breaker status.
+                </div>
+                <button class="button" onclick="checkCDNSources()">Check CDN Health</button>
+                <button class="button" onclick="refreshCDN()">Refresh</button>
+                
+                <div class="versions-list" id="cdn-sources">
+                    <!-- CDN sources will be populated here -->
+                </div>
+                
+                <div class="log" id="cdn-log">
+                    <div class="log-entry info">⏳ Checking CDN sources...</div>
+                </div>
+            </div>
+            
+            <!-- Performance Metrics -->
+            <div class="feature-card">
+                <h3>📊 Performance Metrics</h3>
+                <div class="status">
+                    <div class="status-indicator" id="metrics-status"></div>
+                    <span id="metrics-status-text">Loading metrics...</span>
+                </div>
+                <div class="info">
+                    Track download performance, success rates, and system metrics.
+                </div>
+                <button class="button" onclick="loadMetrics()">Load Metrics</button>
+                <button class="button" onclick="clearMetrics()">Clear Log</button>
+                
+                <div class="metrics-grid" id="performance-metrics">
+                    <!-- Performance metrics will be populated here -->
+                </div>
+                
+                <div class="log" id="metrics-log">
+                    <div class="log-entry info">⏳ Loading performance metrics...</div>
+                </div>
+            </div>
+            
+            <!-- Event Log -->
+            <div class="feature-card">
+                <h3>📝 Event Log</h3>
+                <div class="status">
+                    <div class="status-indicator" id="events-status"></div>
+                    <span id="events-status-text">Loading events...</span>
+                </div>
+                <div class="info">
+                    View recent system events, updates, and error logs.
+                </div>
+                <button class="button" onclick="loadEvents()">Load Events</button>
+                <button class="button" onclick="clearEvents()">Clear Log</button>
+                
+                <div class="log" id="events-log">
+                    <div class="log-entry info">⏳ Loading event log...</div>
+                </div>
+            </div>
+            
+            <!-- Advanced Testing -->
+            <div class="feature-card">
+                <h3>🧪 Advanced Testing</h3>
+                <div class="status">
+                    <div class="status-indicator" id="test-status"></div>
+                    <span id="test-status-text">Ready for testing</span>
+                </div>
+                <div class="info">
+                    Test advanced features like rollback, circuit breaker, and error handling.
+                </div>
+                <button class="button" onclick="testRollback()">Test Rollback</button>
+                <button class="button warning" onclick="testCircuitBreaker()">Test Circuit Breaker</button>
+                <button class="button danger" onclick="testErrorHandling()">Test Error Handling</button>
+                
+                <div class="log" id="test-log">
+                    <div class="log-entry info">🚀 Advanced testing ready</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let currentVersions = [];
+        let systemHealth = {};
+        let cdnSources = [];
+        let performanceMetrics = {};
+        let events = [];
+        
+        // Logging system
+        function log(message, type = 'info', logId = 'test-log') {
+            const logContainer = document.getElementById(logId);
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function clearLog(logId) {
+            document.getElementById(logId).innerHTML = '';
+        }
+        
+        // System Health Functions
+        async function checkSystemHealth() {
+            log('🏥 Checking system health...', 'info', 'health-log');
+            
+            try {
+                const response = await fetch('/api/lit/health');
+                const data = await response.json();
+                
+                systemHealth = data;
+                
+                // Update status
+                const statusIndicator = document.getElementById('health-status');
+                const statusText = document.getElementById('health-status-text');
+                
+                if (data.status === 'healthy') {
+                    statusIndicator.className = 'status-indicator';
+                    statusText.textContent = `System: Healthy (${data.current_version})`;
+                    log('✅ System is healthy', 'success', 'health-log');
+                } else {
+                    statusIndicator.className = 'status-indicator error';
+                    statusText.textContent = 'System: Unhealthy';
+                    log('❌ System is unhealthy', 'error', 'health-log');
+                }
+                
+                // Update metrics
+                updateHealthMetrics(data);
+                
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`, 'error', 'health-log');
+                document.getElementById('health-status').className = 'status-indicator error';
+                document.getElementById('health-status-text').textContent = 'Health check failed';
+            }
+        }
+        
+        function updateHealthMetrics(data) {
+            const metricsContainer = document.getElementById('health-metrics');
+            metricsContainer.innerHTML = `
+                <div class="metric">
+                    <div class="metric-value">${data.uptime_seconds || 0}</div>
+                    <div class="metric-label">Uptime (seconds)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${data.cdn_sources_healthy || 0}/${data.total_cdn_sources || 0}</div>
+                    <div class="metric-label">Healthy CDN Sources</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${data.metrics?.successful_downloads || 0}</div>
+                    <div class="metric-label">Successful Downloads</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${data.metrics?.failed_downloads || 0}</div>
+                    <div class="metric-label">Failed Downloads</div>
+                </div>
+            `;
+        }
+        
+        async function refreshHealth() {
+            clearLog('health-log');
+            await checkSystemHealth();
+        }
+        
+        // Version Management Functions
+        async function loadVersions() {
+            log('📦 Loading available versions...', 'info', 'version-log');
+            
+            try {
+                const response = await fetch('/api/lit/versions');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    currentVersions = data.versions;
+                    updateVersionsList(data.versions);
+                    
+                    document.getElementById('version-status').className = 'status-indicator';
+                    document.getElementById('version-status-text').textContent = `Found ${data.versions.length} versions`;
+                    
+                    log(`✅ Loaded ${data.versions.length} versions`, 'success', 'version-log');
+                } else {
+                    throw new Error(data.message || 'Failed to load versions');
+                }
+                
+            } catch (error) {
+                log(`❌ Failed to load versions: ${error.message}`, 'error', 'version-log');
+                document.getElementById('version-status').className = 'status-indicator error';
+                document.getElementById('version-status-text').textContent = 'Failed to load versions';
+            }
+        }
+        
+        function updateVersionsList(versions) {
+            const versionsContainer = document.getElementById('versions-list');
+            versionsContainer.innerHTML = '';
+            
+            versions.forEach(version => {
+                const versionItem = document.createElement('div');
+                versionItem.className = `version-item ${version.is_active ? 'version-active' : ''}`;
+                versionItem.innerHTML = `
+                    <div>
+                        <strong>${version.version}</strong>
+                        ${version.is_active ? '<span style="color: #4CAF50;"> (Active)</span>' : ''}
+                        <br>
+                        <small>Size: ${version.size} bytes | Score: ${version.performance_score.toFixed(2)}</small>
+                    </div>
+                    <div>
+                        ${!version.is_active ? `<button class="button" onclick="rollbackToVersion('${version.version}')">Rollback</button>` : ''}
+                    </div>
+                `;
+                versionsContainer.appendChild(versionItem);
+            });
+        }
+        
+        async function forceUpdate() {
+            log('🔄 Forcing update...', 'warning', 'version-log');
+            
+            try {
+                const response = await fetch('/api/lit/download');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    log('✅ Update completed successfully', 'success', 'version-log');
+                    await loadVersions(); // Reload versions
+                } else {
+                    throw new Error(data.message || 'Update failed');
+                }
+                
+            } catch (error) {
+                log(`❌ Update failed: ${error.message}`, 'error', 'version-log');
+            }
+        }
+        
+        async function rollbackToVersion(version) {
+            log(`🔄 Rolling back to version ${version}...`, 'warning', 'version-log');
+            
+            try {
+                const response = await fetch(`/api/lit/rollback/${version}`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    log(`✅ Successfully rolled back to ${version}`, 'success', 'version-log');
+                    await loadVersions(); // Reload versions
+                } else {
+                    throw new Error(data.message || 'Rollback failed');
+                }
+                
+            } catch (error) {
+                log(`❌ Rollback failed: ${error.message}`, 'error', 'version-log');
+            }
+        }
+        
+        // CDN Sources Functions
+        async function checkCDNSources() {
+            log('🌐 Checking CDN sources...', 'info', 'cdn-log');
+            
+            try {
+                const response = await fetch('/api/lit/info');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    cdnSources = data.lit_info.cdn_sources || [];
+                    updateCDNSources(cdnSources);
+                    
+                    const healthyCount = cdnSources.filter(source => source.healthy).length;
+                    document.getElementById('cdn-status').className = 'status-indicator';
+                    document.getElementById('cdn-status-text').textContent = `${healthyCount}/${cdnSources.length} CDN sources healthy`;
+                    
+                    log(`✅ CDN check completed: ${healthyCount}/${cdnSources.length} healthy`, 'success', 'cdn-log');
+                } else {
+                    throw new Error(data.message || 'Failed to check CDN sources');
+                }
+                
+            } catch (error) {
+                log(`❌ CDN check failed: ${error.message}`, 'error', 'cdn-log');
+                document.getElementById('cdn-status').className = 'status-indicator error';
+                document.getElementById('cdn-status-text').textContent = 'CDN check failed';
+            }
+        }
+        
+        function updateCDNSources(sources) {
+            const cdnContainer = document.getElementById('cdn-sources');
+            cdnContainer.innerHTML = '';
+            
+            sources.forEach(source => {
+                const sourceItem = document.createElement('div');
+                sourceItem.className = 'cdn-source';
+                sourceItem.innerHTML = `
+                    <div>
+                        <strong>${source.url}</strong>
+                        <br>
+                        <small>Priority: ${source.priority} | Response: ${source.response_time.toFixed(2)}ms | Errors: ${source.error_count}</small>
+                    </div>
+                    <div class="${source.healthy ? 'cdn-healthy' : 'cdn-unhealthy'}">
+                        ${source.healthy ? '✅ Healthy' : '❌ Unhealthy'}
+                    </div>
+                `;
+                cdnContainer.appendChild(sourceItem);
+            });
+        }
+        
+        async function refreshCDN() {
+            clearLog('cdn-log');
+            await checkCDNSources();
+        }
+        
+        // Performance Metrics Functions
+        async function loadMetrics() {
+            log('📊 Loading performance metrics...', 'info', 'metrics-log');
+            
+            try {
+                const response = await fetch('/api/lit/info');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    performanceMetrics = data.lit_info.metrics || {};
+                    updatePerformanceMetrics(performanceMetrics);
+                    
+                    document.getElementById('metrics-status').className = 'status-indicator';
+                    document.getElementById('metrics-status-text').textContent = 'Metrics loaded';
+                    
+                    log('✅ Performance metrics loaded', 'success', 'metrics-log');
+                } else {
+                    throw new Error(data.message || 'Failed to load metrics');
+                }
+                
+            } catch (error) {
+                log(`❌ Failed to load metrics: ${error.message}`, 'error', 'metrics-log');
+                document.getElementById('metrics-status').className = 'status-indicator error';
+                document.getElementById('metrics-status-text').textContent = 'Failed to load metrics';
+            }
+        }
+        
+        function updatePerformanceMetrics(metrics) {
+            const metricsContainer = document.getElementById('performance-metrics');
+            metricsContainer.innerHTML = `
+                <div class="metric">
+                    <div class="metric-value">${metrics.total_downloads || 0}</div>
+                    <div class="metric-label">Total Downloads</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${metrics.successful_downloads || 0}</div>
+                    <div class="metric-label">Successful</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${metrics.failed_downloads || 0}</div>
+                    <div class="metric-label">Failed</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${(metrics.average_download_time || 0).toFixed(2)}s</div>
+                    <div class="metric-label">Avg Download Time</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${metrics.total_updates || 0}</div>
+                    <div class="metric-label">Total Updates</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${metrics.rollbacks || 0}</div>
+                    <div class="metric-label">Rollbacks</div>
+                </div>
+            `;
+        }
+        
+        function clearMetrics() {
+            clearLog('metrics-log');
+        }
+        
+        // Event Log Functions
+        async function loadEvents() {
+            log('📝 Loading event log...', 'info', 'events-log');
+            
+            try {
+                const response = await fetch('/api/lit/info');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    events = data.lit_info.recent_events || [];
+                    updateEventsList(events);
+                    
+                    document.getElementById('events-status').className = 'status-indicator';
+                    document.getElementById('events-status-text').textContent = `${events.length} recent events`;
+                    
+                    log(`✅ Loaded ${events.length} events`, 'success', 'events-log');
+                } else {
+                    throw new Error(data.message || 'Failed to load events');
+                }
+                
+            } catch (error) {
+                log(`❌ Failed to load events: ${error.message}`, 'error', 'events-log');
+                document.getElementById('events-status').className = 'status-indicator error';
+                document.getElementById('events-status-text').textContent = 'Failed to load events';
+            }
+        }
+        
+        function updateEventsList(events) {
+            const eventsContainer = document.getElementById('events-log');
+            eventsContainer.innerHTML = '';
+            
+            events.forEach(event => {
+                const eventEntry = document.createElement('div');
+                eventEntry.className = `log-entry ${event.status === 'completed' ? 'success' : event.status === 'failed' ? 'error' : 'warning'}`;
+                eventEntry.textContent = `${event.timestamp}: [${event.event_type}] ${event.message}`;
+                eventsContainer.appendChild(eventEntry);
+            });
+        }
+        
+        function clearEvents() {
+            clearLog('events-log');
+        }
+        
+        // Advanced Testing Functions
+        async function testRollback() {
+            log('🧪 Testing rollback functionality...', 'warning', 'test-log');
+            
+            if (currentVersions.length < 2) {
+                log('❌ Need at least 2 versions to test rollback', 'error', 'test-log');
+                return;
+            }
+            
+            const nonActiveVersions = currentVersions.filter(v => !v.is_active);
+            if (nonActiveVersions.length === 0) {
+                log('❌ No non-active versions available for rollback test', 'error', 'test-log');
+                return;
+            }
+            
+            const testVersion = nonActiveVersions[0];
+            log(`🔄 Testing rollback to version ${testVersion.version}...`, 'warning', 'test-log');
+            
+            try {
+                await rollbackToVersion(testVersion.version);
+                log('✅ Rollback test completed', 'success', 'test-log');
+            } catch (error) {
+                log(`❌ Rollback test failed: ${error.message}`, 'error', 'test-log');
+            }
+        }
+        
+        async function testCircuitBreaker() {
+            log('🧪 Testing circuit breaker functionality...', 'warning', 'test-log');
+            
+            // This would test the circuit breaker by making multiple failed requests
+            // In a real implementation, you might temporarily disable CDN sources
+            log('⚠️ Circuit breaker test not implemented (requires server-side changes)', 'warning', 'test-log');
+        }
+        
+        async function testErrorHandling() {
+            log('🧪 Testing error handling...', 'warning', 'test-log');
+            
+            try {
+                // Test with invalid endpoint
+                const response = await fetch('/api/lit/rollback/invalid-version', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.status === 400 || response.status === 500) {
+                    log('✅ Error handling test passed - invalid request handled correctly', 'success', 'test-log');
+                } else {
+                    log('⚠️ Error handling test unexpected result', 'warning', 'test-log');
+                }
+                
+            } catch (error) {
+                log(`✅ Error handling test passed - error caught: ${error.message}`, 'success', 'test-log');
+            }
+        }
+        
+        // Auto-initialization
+        window.addEventListener('load', async () => {
+            log('🚀 Advanced features test page loaded', 'success', 'test-log');
+            
+            // Initialize all components
+            await Promise.all([
+                checkSystemHealth(),
+                loadVersions(),
+                checkCDNSources(),
+                loadMetrics(),
+                loadEvents()
+            ]);
+            
+            log('✅ All components initialized', 'success', 'test-log');
+        });
+    </script>
+</body>
+</html>

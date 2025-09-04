@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lit Loader Test - AI Agent System Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0.5rem 0 0 0;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .test-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            transition: all 0.3s ease;
+        }
+        
+        .test-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-card h3 {
+            margin: 0 0 1rem 0;
+            color: #4CAF50;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.error {
+            background: #f44336;
+        }
+        
+        .status-indicator.warning {
+            background: #ff9800;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .info {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            line-height: 1.5;
+        }
+        
+        .button {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        .button:hover {
+            background: rgba(76, 175, 80, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Lit Loader Test</h1>
+            <p>Testing the centralized Lit 3 loading system with offline fallback</p>
+        </div>
+        
+        <div class="test-grid">
+            <div class="test-card">
+                <h3>📦 Lit Loader Test</h3>
+                <div class="status">
+                    <div class="status-indicator"></div>
+                    <span>Loading Lit 3...</span>
+                </div>
+                <div class="info">
+                    This component tests the centralized Lit 3 loading system.
+                </div>
+                <test-lit-loader></test-lit-loader>
+            </div>
+            
+            <div class="test-card">
+                <h3>🤖 Agents Status Card</h3>
+                <div class="status">
+                    <div class="status-indicator"></div>
+                    <span>Loading component...</span>
+                </div>
+                <div class="info">
+                    This component tests the updated agents status card with the new Lit loader.
+                </div>
+                <agents-status-card></agents-status-card>
+            </div>
+            
+            <div class="test-card">
+                <h3>🔧 System Information</h3>
+                <div class="status">
+                    <div class="status-indicator"></div>
+                    <span>System Ready</span>
+                </div>
+                <div class="info">
+                    <strong>Features:</strong><br>
+                    ✅ Centralized Lit 3 loading<br>
+                    ✅ Offline fallback support<br>
+                    ✅ Automatic version management<br>
+                    ✅ TypeScript integration<br>
+                    ✅ Error handling & recovery
+                </div>
+                <button class="button" onclick="testLitAPI()">
+                    Test Lit API
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load the test components -->
+    <script type="module" src="./components/test-lit-loader.ts"></script>
+    <script type="module" src="./components/agents-status-card.ts"></script>
+    
+    <script>
+        // Test the Lit API endpoints
+        async function testLitAPI() {
+            try {
+                const response = await fetch('/api/lit/info');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert(`✅ Lit API Working!\n\nVersion: ${data.lit_info.version}\nSize: ${data.lit_info.size} bytes\nAvailable: ${data.lit_info.available}`);
+                } else {
+                    alert('❌ Lit API Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('❌ Failed to connect to Lit API: ' + error.message);
+            }
+        }
+        
+        // Auto-test the API on page load
+        window.addEventListener('load', () => {
+            setTimeout(testLitAPI, 2000);
+        });
+    </script>
+</body>
+</html>

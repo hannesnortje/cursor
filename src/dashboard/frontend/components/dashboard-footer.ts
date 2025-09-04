@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+import { litLoader, getLit } from '../lib/lit-loader.js';
 
 // Type declarations for Lit 3
 declare global {
@@ -7,7 +7,7 @@ declare global {
   }
 }
 
-export class DashboardFooter extends LitElement {
+// Wait for Lit to be loaded, then define the componentngetLit().then(async ({ LitElement, html, css }) => {nnexport class DashboardFooter extends LitElement {
   static properties = {};
 
   constructor() {
@@ -330,4 +330,36 @@ export class DashboardFooter extends LitElement {
   `;
 }
 
+// Register the component
 customElements.define('dashboard-footer', DashboardFooter);
+
+console.log('✅ Dashboard Footer component registered successfully');
+
+}).catch(error => {
+  console.error('❌ Failed to load Lit 3 for Dashboard Footer:', error);
+  
+  // Create a fallback component that shows the error
+  class DashboardFooterError extends HTMLElement {
+    connectedCallback() {
+      this.innerHTML = `
+        <div style="
+          padding: 1rem;
+          background: rgba(244, 67, 54, 0.1);
+          border: 1px solid #f44336;
+          border-radius: 0.5rem;
+          color: #f44336;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          text-align: center;
+        ">
+          <div style="font-weight: bold; margin-bottom: 0.5rem;">❌ Dashboard Footer Failed</div>
+          <div style="font-size: 0.9rem;">Error: ${error.message}</div>
+          <div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.8;">
+            Check console for more details
+          </div>
+        </div>
+      `;
+    }
+  }
+  
+  customElements.define('dashboard-footer', DashboardFooterError);
+});
