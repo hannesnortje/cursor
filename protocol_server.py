@@ -31,7 +31,8 @@ class AgentSystem:
     
     def __init__(self, instance_id: str = None):
         # Instance management
-        self.instance_id = instance_id
+        import os
+        self.instance_id = instance_id or f"mcp_{os.getpid()}"
         self.instance_info = None
         
         # Core system state
@@ -40,14 +41,15 @@ class AgentSystem:
         self.system_status = "initializing"
         self.start_time = datetime.now()
         
-        # Initialize instance registry if available
+        # Initialize instance registry if available (with better error handling)
+        self.registry = None
         try:
             from src.core.instance_registry import get_registry
             self.registry = get_registry()
             logger.info("Instance registry integration available")
-        except ImportError:
+        except Exception as e:
+            logger.warning(f"Instance registry not available: {e}")
             self.registry = None
-            logger.warning("Instance registry not available")
         
         # Initialize vector store if available
         self.vector_store = None
@@ -61,8 +63,10 @@ class AgentSystem:
     
     def initialize_instance(self, cursor_client_id: str = None, working_directory: str = None):
         """Initialize instance in registry."""
-        if self.registry and not self.instance_info:
-            try:
+        try:
+            logger.info(f"Starting instance initialization for {self.instance_id}")
+            if self.registry and not self.instance_info:
+                logger.info("Registry available, registering instance...")
                 self.instance_info = self.registry.register_instance(
                     instance_id=self.instance_id,
                     cursor_client_id=cursor_client_id,
@@ -71,32 +75,53 @@ class AgentSystem:
                 self.instance_id = self.instance_info.instance_id
                 logger.info(f"Initialized instance {self.instance_id} with dashboard port {self.instance_info.dashboard_port}")
                 
-                # Start dashboard spawning in background
+                # Start dashboard spawning in background (non-blocking)
+                logger.info("Starting dashboard spawning...")
                 self._start_dashboard_spawning()
-                
-            except Exception as e:
-                logger.error(f"Failed to initialize instance: {e}")
+                logger.info("Dashboard spawning started")
+            else:
+                logger.info(f"Instance {self.instance_id} initialized without registry")
+        except Exception as e:
+            logger.warning(f"Failed to initialize instance (continuing without instance management): {e}")
+            # Continue without instance management - don't break MCP server
     
     def _start_dashboard_spawning(self):
         """Start dashboard spawning in background thread."""
         try:
             import threading
-            from src.dashboard.dashboard_spawner import spawn_dashboard_for_instance
+            import subprocess
+            import os
             
             def spawn_dashboard():
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
                 try:
-                    loop.run_until_complete(spawn_dashboard_for_instance(
-                        self.instance_id,
-                        self.instance_info.dashboard_port,
-                        self.instance_info
-                    ))
+                    # Simple subprocess approach instead of async
+                    dashboard_cmd = [
+                        sys.executable, "-m", "src.dashboard.backend.main",
+                        "--port", str(self.instance_info.dashboard_port),
+                        "--instance-id", self.instance_id
+                    ]
+                    
+                    # Set environment variables
+                    env = os.environ.copy()
+                    env.update({
+                        "DASHBOARD_PORT": str(self.instance_info.dashboard_port),
+                        "MCP_INSTANCE_ID": self.instance_id,
+                        "PYTHONPATH": os.getcwd()
+                    })
+                    
+                    # Start dashboard process
+                    process = subprocess.Popen(
+                        dashboard_cmd,
+                        env=env,
+                        cwd=os.getcwd(),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE
+                    )
+                    
+                    logger.info(f"Started dashboard process {process.pid} for instance {self.instance_id}")
+                    
                 except Exception as e:
-                    logger.error(f"Failed to spawn dashboard: {e}")
-                finally:
-                    loop.close()
+                    logger.warning(f"Failed to spawn dashboard: {e}")
             
             # Start dashboard spawning in background thread
             dashboard_thread = threading.Thread(target=spawn_dashboard, daemon=True)
@@ -104,7 +129,7 @@ class AgentSystem:
             logger.info(f"Started dashboard spawning thread for instance {self.instance_id}")
             
         except Exception as e:
-            logger.error(f"Failed to start dashboard spawning: {e}")
+            logger.warning(f"Failed to start dashboard spawning (continuing without dashboard): {e}")
     
     def get_instance_info(self) -> Dict[str, Any]:
         """Get instance information."""
@@ -1586,22 +1611,31 @@ def send_notification(method, params=None):
 def main():
     logger.info("Starting enhanced MCP server with agent system...")
     
-    # Initialize instance management
-    import os
-    cursor_client_id = os.environ.get('CURSOR_CLIENT_ID', f"cursor_{os.getpid()}")
-    working_directory = os.getcwd()
-    
-    # Initialize agent system with instance management
+    # Initialize agent system first (core functionality)
     global agent_system
     agent_system = AgentSystem()
-    agent_system.initialize_instance(
-        cursor_client_id=cursor_client_id,
-        working_directory=working_directory
-    )
-    
     logger.info(f"Initialized MCP server instance {agent_system.instance_id}")
-    if agent_system.instance_info:
-        logger.info(f"Dashboard will be available at: {agent_system.instance_info.dashboard_url}")
+    
+    # Try to initialize instance management (non-blocking)
+    try:
+        import os
+        cursor_client_id = os.environ.get('CURSOR_CLIENT_ID', f"cursor_{os.getpid()}")
+        working_directory = os.getcwd()
+        
+        # Initialize instance management
+        agent_system.initialize_instance(
+            cursor_client_id=cursor_client_id,
+            working_directory=working_directory
+        )
+        
+        if agent_system.instance_info:
+            logger.info(f"Dashboard will be available at: {agent_system.instance_info.dashboard_url}")
+        else:
+            logger.info("Instance management not available - MCP server running in basic mode")
+            
+    except Exception as e:
+        logger.warning(f"Instance management initialization failed (continuing in basic mode): {e}")
+        # Continue without instance management - MCP server still works
     
     # Enhanced initialization response with agent tools
     init_response = {
@@ -1916,6 +1950,39 @@ def main():
                 # Send initialized notification
                 send_notification("initialized")
                 logger.info("MCP server initialized successfully")
+                
+                # Automatically spawn dashboard for Cursor connection
+                try:
+                    logger.info("Auto-spawning dashboard for Cursor connection...")
+                    from src.dashboard.dashboard_spawner import get_dashboard_spawner
+                    spawner = get_dashboard_spawner()
+                    
+                    # Get a port for the dashboard
+                    port = agent_system.registry.find_available_dashboard_port() if agent_system.registry else 5024
+                    
+                    # Create instance info for the dashboard
+                    from src.core.instance_info import InstanceInfo, InstanceStatus
+                    instance_info = InstanceInfo(
+                        instance_id=agent_system.instance_id,
+                        status=InstanceStatus.RUNNING,
+                        dashboard_port=port,
+                        started_at=datetime.now(),
+                        working_directory="/media/hannesn/storage/Code/cursor"
+                    )
+                    
+                    # Spawn dashboard asynchronously
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    success = loop.run_until_complete(spawner.spawn_dashboard(agent_system.instance_id, port, instance_info))
+                    loop.close()
+                    
+                    if success:
+                        logger.info(f"Dashboard auto-spawned successfully on port {port}")
+                    else:
+                        logger.warning("Failed to auto-spawn dashboard")
+                except Exception as e:
+                    logger.warning(f"Error auto-spawning dashboard: {e}")
                 
             elif method == "tools/list":
                 tools_response = {

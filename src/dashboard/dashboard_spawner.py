@@ -28,7 +28,7 @@ class DashboardSpawner:
     def __init__(self):
         self.active_dashboards: Dict[str, Dict[str, Any]] = {}
         self.registry = get_registry()
-        self.dashboard_backend_path = Path("src/dashboard/backend/main.py")
+        self.dashboard_backend_path = Path(__file__).parent / "backend" / "main.py"
         self.lock = threading.Lock()
         self.browser_manager = get_browser_manager()
         self.browser_config = get_browser_config()
@@ -112,6 +112,8 @@ class DashboardSpawner:
             }
             
             # Start dashboard backend process
+            # Set working directory to the dashboard backend directory
+            backend_dir = self.dashboard_backend_path.parent
             process = subprocess.Popen(
                 [
                     sys.executable,
@@ -123,7 +125,7 @@ class DashboardSpawner:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=Path.cwd()
+                cwd=backend_dir
             )
             
             dashboard_config['process'] = process

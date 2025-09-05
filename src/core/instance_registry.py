@@ -56,18 +56,18 @@ class InstanceRegistry:
     def _save_registry(self):
         """Save registry to file."""
         try:
-            with self.lock:
-                data = {
-                    'instances': [instance.to_dict() for instance in self.instances.values()],
-                    'last_updated': datetime.now().isoformat(),
-                    'version': '1.0'
-                }
-                
-                # Ensure directory exists
-                self.registry_file.parent.mkdir(parents=True, exist_ok=True)
-                
-                with open(self.registry_file, 'w') as f:
-                    json.dump(data, f, indent=2)
+            # Don't acquire lock here - it's already held by caller
+            data = {
+                'instances': [instance.to_dict() for instance in self.instances.values()],
+                'last_updated': datetime.now().isoformat(),
+                'version': '1.0'
+            }
+            
+            # Ensure directory exists
+            self.registry_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(self.registry_file, 'w') as f:
+                json.dump(data, f, indent=2)
                     
         except Exception as e:
             logger.warning(f"Failed to save registry: {e}")

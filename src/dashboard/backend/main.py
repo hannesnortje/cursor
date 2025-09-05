@@ -123,7 +123,7 @@ async def dashboard_home():
     """Serve the main dashboard page."""
     try:
         # Read the component-based HTML file
-        with open("src/dashboard/frontend/index.html", "r") as f:
+        with open("../frontend/index.html", "r") as f:
             return f.read()
     except FileNotFoundError:
         # Fallback to simple HTML if file not found
