@@ -7,19 +7,24 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 import threading
 import subprocess
-import os
 import time
 import requests
 
 # Import the enhanced vector store system for Phase 9.1
 try:
-    from src.database import get_enhanced_vector_store, get_project_manager, get_docker_manager
+    from src.database import get_enhanced_vector_store
     from src.mcp_tools.phase9_tools import (
         start_qdrant_container, stop_qdrant_container, get_qdrant_status,
         create_project_database, list_project_databases, switch_project_database,
         archive_project_database, restore_project_database, delete_project_database,
         get_project_collection_stats, initialize_predetermined_knowledge,
         search_project_knowledge, backup_project_data, restore_project_data
+    )
+    from src.mcp_tools.phase9_2_tools import (
+        create_autogen_agent, create_autogen_group_chat, start_autogen_workflow,
+        get_autogen_roles, get_autogen_workflows, get_autogen_agent_info,
+        get_autogen_group_chat_info, list_autogen_agents, list_autogen_group_chats,
+        start_autogen_conversation
     )
     QDRANT_AVAILABLE = True
     ENHANCED_VECTOR_STORE_AVAILABLE = True
@@ -2887,6 +2892,117 @@ def main():
                                 },
                                 "required": ["project_id", "backup_path"]
                             }
+                        },
+                        # Phase 9.2: Enhanced AutoGen Integration Tools
+                        {
+                            "name": "create_autogen_agent",
+                            "description": "Create an enhanced AutoGen agent with dynamic role assignment",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "agent_id": {"type": "string", "description": "Unique identifier for the agent"},
+                                    "role_name": {"type": "string", "description": "Role name (coordinator, frontend_developer, backend_developer, testing_specialist, documentation_specialist)"},
+                                    "project_id": {"type": "string", "description": "Optional project ID for project-specific memory"}
+                                },
+                                "required": ["agent_id", "role_name"]
+                            }
+                        },
+                        {
+                            "name": "create_autogen_group_chat",
+                            "description": "Create an enhanced AutoGen group chat with multiple agents",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "chat_id": {"type": "string", "description": "Unique identifier for the group chat"},
+                                    "agent_ids": {"type": "array", "items": {"type": "string"}, "description": "List of agent IDs to include in the chat"},
+                                    "project_id": {"type": "string", "description": "Optional project ID for project-specific context"}
+                                },
+                                "required": ["chat_id", "agent_ids"]
+                            }
+                        },
+                        {
+                            "name": "start_autogen_workflow",
+                            "description": "Start a predefined AutoGen workflow (sprint_planning, code_review, architecture_design, bug_triage)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "workflow_name": {"type": "string", "description": "Name of the workflow to start"},
+                                    "project_id": {"type": "string", "description": "Optional project ID for project-specific context"},
+                                    "initial_message": {"type": "string", "description": "Optional initial message to start the conversation"}
+                                },
+                                "required": ["workflow_name"]
+                            }
+                        },
+                        {
+                            "name": "get_autogen_roles",
+                            "description": "Get available AutoGen agent roles and their capabilities",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_autogen_workflows",
+                            "description": "Get available AutoGen workflow templates",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_autogen_agent_info",
+                            "description": "Get information about a specific AutoGen agent",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "agent_id": {"type": "string", "description": "Agent ID to get information for"}
+                                },
+                                "required": ["agent_id"]
+                            }
+                        },
+                        {
+                            "name": "get_autogen_group_chat_info",
+                            "description": "Get information about a specific AutoGen group chat",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "chat_id": {"type": "string", "description": "Group chat ID to get information for"}
+                                },
+                                "required": ["chat_id"]
+                            }
+                        },
+                        {
+                            "name": "list_autogen_agents",
+                            "description": "List all AutoGen agents and their status",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "list_autogen_group_chats",
+                            "description": "List all AutoGen group chats and their status",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "start_autogen_conversation",
+                            "description": "Start a conversation in an AutoGen group chat",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "chat_id": {"type": "string", "description": "Group chat ID to start conversation in"},
+                                    "message": {"type": "string", "description": "Message to start the conversation with"},
+                                    "conversation_type": {"type": "string", "description": "Type of conversation (general, sprint_planning, code_review, etc.)"}
+                                },
+                                "required": ["chat_id", "message"]
+                            }
                         }
                     ]
                 }
@@ -4223,6 +4339,151 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to restore project data: {str(e)}"
+                        })
+                
+                # Phase 9.2: Enhanced AutoGen Integration Tools
+                elif tool_name == "create_autogen_agent":
+                    try:
+                        agent_id = arguments.get("agent_id")
+                        role_name = arguments.get("role_name")
+                        project_id = arguments.get("project_id")
+                        result = create_autogen_agent(agent_id, role_name, project_id)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to create AutoGen agent: {str(e)}"
+                        })
+                
+                elif tool_name == "create_autogen_group_chat":
+                    try:
+                        chat_id = arguments.get("chat_id")
+                        agent_ids = arguments.get("agent_ids")
+                        project_id = arguments.get("project_id")
+                        result = create_autogen_group_chat(chat_id, agent_ids, project_id)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to create AutoGen group chat: {str(e)}"
+                        })
+                
+                elif tool_name == "start_autogen_workflow":
+                    try:
+                        workflow_name = arguments.get("workflow_name")
+                        project_id = arguments.get("project_id")
+                        initial_message = arguments.get("initial_message")
+                        result = start_autogen_workflow(workflow_name, project_id, initial_message)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result.get("message", f"Started workflow: {workflow_name}")}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to start AutoGen workflow: {str(e)}"
+                        })
+                
+                elif tool_name == "get_autogen_roles":
+                    try:
+                        result = get_autogen_roles()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Available AutoGen Roles: {result.get('count', 0)} found\n{json.dumps(result.get('roles', []), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get AutoGen roles: {str(e)}"
+                        })
+                
+                elif tool_name == "get_autogen_workflows":
+                    try:
+                        result = get_autogen_workflows()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Available AutoGen Workflows: {result.get('count', 0)} found\n{json.dumps(result.get('workflows', {}), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get AutoGen workflows: {str(e)}"
+                        })
+                
+                elif tool_name == "get_autogen_agent_info":
+                    try:
+                        agent_id = arguments.get("agent_id")
+                        result = get_autogen_agent_info(agent_id)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get AutoGen agent info: {str(e)}"
+                        })
+                
+                elif tool_name == "get_autogen_group_chat_info":
+                    try:
+                        chat_id = arguments.get("chat_id")
+                        result = get_autogen_group_chat_info(chat_id)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get AutoGen group chat info: {str(e)}"
+                        })
+                
+                elif tool_name == "list_autogen_agents":
+                    try:
+                        result = list_autogen_agents()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"AutoGen Agents: {result.get('count', 0)} found\n{json.dumps(result.get('agents', {}), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list AutoGen agents: {str(e)}"
+                        })
+                
+                elif tool_name == "list_autogen_group_chats":
+                    try:
+                        result = list_autogen_group_chats()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"AutoGen Group Chats: {result.get('count', 0)} found\n{json.dumps(result.get('group_chats', {}), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list AutoGen group chats: {str(e)}"
+                        })
+                
+                elif tool_name == "start_autogen_conversation":
+                    try:
+                        chat_id = arguments.get("chat_id")
+                        message = arguments.get("message")
+                        conversation_type = arguments.get("conversation_type", "general")
+                        result = start_autogen_conversation(chat_id, message, conversation_type)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result.get("message", "Conversation started")}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to start AutoGen conversation: {str(e)}"
                         })
                 
                 else:
