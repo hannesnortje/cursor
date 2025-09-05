@@ -26,6 +26,12 @@ try:
         get_autogen_group_chat_info, list_autogen_agents, list_autogen_group_chats,
         start_autogen_conversation
     )
+    from src.mcp_tools.phase9_3_tools import (
+        start_advanced_communication, stop_advanced_communication, send_advanced_message,
+        get_communication_analytics, get_queue_status, enable_cross_project_communication,
+        disable_cross_project_communication, share_knowledge_between_projects,
+        get_compression_stats, get_available_message_types, get_communication_health
+    )
     QDRANT_AVAILABLE = True
     ENHANCED_VECTOR_STORE_AVAILABLE = True
     logger = logging.getLogger("enhanced-mcp-server")
@@ -3003,6 +3009,125 @@ def main():
                                 },
                                 "required": ["chat_id", "message"]
                             }
+                        },
+                        # Phase 9.3: Advanced Communication Features Tools
+                        {
+                            "name": "start_advanced_communication",
+                            "description": "Start the advanced communication system with compression and analytics",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "stop_advanced_communication",
+                            "description": "Stop the advanced communication system",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "send_advanced_message",
+                            "description": "Send a message through the advanced communication system with priority and compression",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "sender": {"type": "string", "description": "Sender identifier"},
+                                    "recipient": {"type": "string", "description": "Recipient identifier"},
+                                    "message_type": {"type": "string", "description": "Message type (agent_communication, workflow_coordination, project_sync, etc.)"},
+                                    "content": {"type": "string", "description": "Message content"},
+                                    "priority": {"type": "string", "description": "Message priority (LOW, NORMAL, HIGH, URGENT, CRITICAL)"},
+                                    "project_id": {"type": "string", "description": "Optional project ID for project-specific routing"},
+                                    "session_id": {"type": "string", "description": "Optional session ID for session tracking"},
+                                    "compression": {"type": "string", "description": "Compression type (NONE, GZIP, ZLIB)"}
+                                },
+                                "required": ["sender", "recipient", "message_type", "content"]
+                            }
+                        },
+                        {
+                            "name": "get_communication_analytics",
+                            "description": "Get communication analytics and performance metrics",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_queue_status",
+                            "description": "Get current message queue status and sizes",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "enable_cross_project_communication",
+                            "description": "Enable cross-project communication between two projects",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project1": {"type": "string", "description": "First project ID"},
+                                    "project2": {"type": "string", "description": "Second project ID"}
+                                },
+                                "required": ["project1", "project2"]
+                            }
+                        },
+                        {
+                            "name": "disable_cross_project_communication",
+                            "description": "Disable cross-project communication between two projects",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project1": {"type": "string", "description": "First project ID"},
+                                    "project2": {"type": "string", "description": "Second project ID"}
+                                },
+                                "required": ["project1", "project2"]
+                            }
+                        },
+                        {
+                            "name": "share_knowledge_between_projects",
+                            "description": "Share knowledge between connected projects",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "source_project": {"type": "string", "description": "Source project ID"},
+                                    "target_project": {"type": "string", "description": "Target project ID"},
+                                    "knowledge": {"type": "object", "description": "Knowledge data to share"}
+                                },
+                                "required": ["source_project", "target_project", "knowledge"]
+                            }
+                        },
+                        {
+                            "name": "get_compression_stats",
+                            "description": "Get message compression statistics and ratios",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_available_message_types",
+                            "description": "Get available message types, priorities, and compression options",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_communication_health",
+                            "description": "Get communication system health status and metrics",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
                         }
                     ]
                 }
@@ -4484,6 +4609,166 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to start AutoGen conversation: {str(e)}"
+                        })
+                
+                # Phase 9.3: Advanced Communication Features Tools
+                elif tool_name == "start_advanced_communication":
+                    try:
+                        result = start_advanced_communication()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to start advanced communication: {str(e)}"
+                        })
+                
+                elif tool_name == "stop_advanced_communication":
+                    try:
+                        result = stop_advanced_communication()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to stop advanced communication: {str(e)}"
+                        })
+                
+                elif tool_name == "send_advanced_message":
+                    try:
+                        sender = arguments.get("sender")
+                        recipient = arguments.get("recipient")
+                        message_type = arguments.get("message_type")
+                        content = arguments.get("content")
+                        priority = arguments.get("priority", "NORMAL")
+                        project_id = arguments.get("project_id")
+                        session_id = arguments.get("session_id")
+                        compression = arguments.get("compression", "NONE")
+                        result = send_advanced_message(sender, recipient, message_type, content, 
+                                                    priority, project_id, session_id, compression)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to send advanced message: {str(e)}"
+                        })
+                
+                elif tool_name == "get_communication_analytics":
+                    try:
+                        result = get_communication_analytics()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Communication Analytics: {json.dumps(result.get('analytics', {}), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get communication analytics: {str(e)}"
+                        })
+                
+                elif tool_name == "get_queue_status":
+                    try:
+                        result = get_queue_status()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Queue Status: {json.dumps(result.get('queue_status', {}), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get queue status: {str(e)}"
+                        })
+                
+                elif tool_name == "enable_cross_project_communication":
+                    try:
+                        project1 = arguments.get("project1")
+                        project2 = arguments.get("project2")
+                        result = enable_cross_project_communication(project1, project2)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to enable cross-project communication: {str(e)}"
+                        })
+                
+                elif tool_name == "disable_cross_project_communication":
+                    try:
+                        project1 = arguments.get("project1")
+                        project2 = arguments.get("project2")
+                        result = disable_cross_project_communication(project1, project2)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to disable cross-project communication: {str(e)}"
+                        })
+                
+                elif tool_name == "share_knowledge_between_projects":
+                    try:
+                        source_project = arguments.get("source_project")
+                        target_project = arguments.get("target_project")
+                        knowledge = arguments.get("knowledge")
+                        result = share_knowledge_between_projects(source_project, target_project, knowledge)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to share knowledge between projects: {str(e)}"
+                        })
+                
+                elif tool_name == "get_compression_stats":
+                    try:
+                        result = get_compression_stats()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Compression Stats: {json.dumps(result.get('compression_stats', {}), indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get compression stats: {str(e)}"
+                        })
+                
+                elif tool_name == "get_available_message_types":
+                    try:
+                        result = get_available_message_types()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": f"Available Options: {json.dumps(result, indent=2)}"}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get available message types: {str(e)}"
+                        })
+                
+                elif tool_name == "get_communication_health":
+                    try:
+                        result = get_communication_health()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get communication health: {str(e)}"
                         })
                 
                 else:
