@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Debug</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "lit": "/static/lib/lit/current/lit-core.min.js"
+      }
+    }
+    </script>
+</head>
+<body>
+    <h1>Dashboard Debug</h1>
+    <div id="status">Loading...</div>
+    
+    <script type="module">
+        console.log('🔍 Starting debug...');
+        
+        try {
+            console.log('📦 Importing Lit...');
+            const { LitElement, html, css } = await import('lit');
+            console.log('✅ Lit imported successfully');
+            
+            console.log('📦 Importing dashboard components...');
+            await import('/static/dist/components/dashboard-app.js');
+            console.log('✅ Dashboard app imported successfully');
+            
+            document.getElementById('status').innerHTML = '✅ All components loaded successfully!';
+            
+            // Try to create the dashboard
+            const dashboard = document.createElement('dashboard-app');
+            document.body.appendChild(dashboard);
+            
+        } catch (error) {
+            console.error('❌ Error:', error);
+            document.getElementById('status').innerHTML = `❌ Error: ${error.message}`;
+        }
+    </script>
+</body>
+</html>

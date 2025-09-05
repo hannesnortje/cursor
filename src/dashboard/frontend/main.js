@@ -2,15 +2,15 @@
 // Import all components in dependency order
 
 // Import child components first
-import './dist/components/dashboard-header.js';
-import './dist/components/system-health-card.js';
-import './dist/components/agents-status-card.js';
-import './dist/components/performance-card.js';
-import './dist/components/quick-actions-card.js';
-import './dist/components/dashboard-footer.js';
+import '/static/dist/components/dashboard-header.js';
+import '/static/dist/components/system-health-card.js';
+import '/static/dist/components/agents-status-card.js';
+import '/static/dist/components/performance-card.js';
+import '/static/dist/components/quick-actions-card.js';
+import '/static/dist/components/dashboard-footer.js';
 
 // Import the main dashboard app component last (depends on child components)
-import './dist/components/dashboard-app.js';
+import '/static/dist/components/dashboard-app.js';
 
 console.log('🚀 Dashboard components loaded successfully!');
 console.log('📱 All components are now available as custom elements:');
