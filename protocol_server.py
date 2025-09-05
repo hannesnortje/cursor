@@ -11,16 +11,19 @@ import os
 import time
 import requests
 
-# Import the new Qdrant vector store system
+# Import the enhanced vector store system for Phase 9.1
 try:
-    from src.database import vector_store
+    from src.database import get_enhanced_vector_store, get_project_manager, get_docker_manager
+    from src.mcp_tools.phase9_tools import phase9_tools
     QDRANT_AVAILABLE = True
+    ENHANCED_VECTOR_STORE_AVAILABLE = True
     logger = logging.getLogger("enhanced-mcp-server")
-    logger.info("Qdrant vector store integration available")
+    logger.info("Enhanced vector store integration available (Phase 9.1)")
 except ImportError as e:
     QDRANT_AVAILABLE = False
+    ENHANCED_VECTOR_STORE_AVAILABLE = False
     logger = logging.getLogger("enhanced-mcp-server")
-    logger.warning(f"Qdrant vector store not available: {e}")
+    logger.warning(f"Enhanced vector store not available: {e}")
 
 # Enhanced logging configuration
 logging.basicConfig(
@@ -55,12 +58,23 @@ class AgentSystem:
             logger.warning(f"Instance registry not available: {e}")
             self.registry = None
         
-        # Initialize vector store if available
+        # Initialize enhanced vector store if available (Phase 9.1)
         self.vector_store = None
-        if QDRANT_AVAILABLE:
+        self.enhanced_vector_store = None
+        if ENHANCED_VECTOR_STORE_AVAILABLE:
             try:
+                self.enhanced_vector_store = get_enhanced_vector_store()
+                self.vector_store = self.enhanced_vector_store  # Use enhanced store
+                logger.info("Enhanced vector store initialized successfully (Phase 9.1)")
+            except Exception as e:
+                logger.warning(f"Failed to initialize enhanced vector store: {e}")
+                self.enhanced_vector_store = None
+                self.vector_store = None
+        elif QDRANT_AVAILABLE:
+            try:
+                from src.database import vector_store
                 self.vector_store = vector_store
-                logger.info("Vector store initialized successfully")
+                logger.info("Legacy vector store initialized successfully")
             except Exception as e:
                 logger.warning(f"Failed to initialize vector store: {e}")
                 self.vector_store = None
@@ -2713,6 +2727,160 @@ def main():
                                 "properties": {},
                                 "required": []
                             }
+                        },
+                        # Phase 9.1: Project-Specific Qdrant Databases Tools
+                        {
+                            "name": "start_qdrant_container",
+                            "description": "Start Qdrant Docker container for project-specific databases",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "stop_qdrant_container",
+                            "description": "Stop Qdrant Docker container",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_qdrant_status",
+                            "description": "Get Qdrant container status and health",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "create_project_database",
+                            "description": "Create a new project-specific Qdrant database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_name": {"type": "string", "description": "Name of the project"},
+                                    "project_id": {"type": "string", "description": "Optional project ID (auto-generated if not provided)"}
+                                },
+                                "required": ["project_name"]
+                            }
+                        },
+                        {
+                            "name": "list_project_databases",
+                            "description": "List all project-specific databases",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "switch_project_database",
+                            "description": "Switch to a different project database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to switch to"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "archive_project_database",
+                            "description": "Archive a project database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to archive"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "restore_project_database",
+                            "description": "Restore an archived project database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to restore"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "delete_project_database",
+                            "description": "Delete a project database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to delete"},
+                                    "permanent": {"type": "boolean", "description": "Whether to permanently delete (default: false)"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "get_project_collection_stats",
+                            "description": "Get collection statistics for a project database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID (optional, uses current if not provided)"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "initialize_predetermined_knowledge",
+                            "description": "Initialize predetermined knowledge bases for a project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID (optional, uses current if not provided)"}
+                                },
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "search_project_knowledge",
+                            "description": "Search knowledge base in a project database",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string", "description": "Search query"},
+                                    "knowledge_type": {"type": "string", "description": "Type of knowledge to search (pdca, agile, security, etc.)"},
+                                    "project_id": {"type": "string", "description": "Project ID (optional, uses current if not provided)"},
+                                    "limit": {"type": "integer", "description": "Maximum number of results (default: 10)"}
+                                },
+                                "required": ["query"]
+                            }
+                        },
+                        {
+                            "name": "backup_project_data",
+                            "description": "Backup project data to a file",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to backup"},
+                                    "backup_path": {"type": "string", "description": "Path where to save the backup"}
+                                },
+                                "required": ["project_id", "backup_path"]
+                            }
+                        },
+                        {
+                            "name": "restore_project_data",
+                            "description": "Restore project data from a backup file",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to restore"},
+                                    "backup_path": {"type": "string", "description": "Path to the backup file"}
+                                },
+                                "required": ["project_id", "backup_path"]
+                            }
                         }
                     ]
                 }
@@ -3765,6 +3933,290 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to open dashboard browser: {str(e)}"
+                        })
+                
+                # Phase 9.1: Project-Specific Qdrant Databases Tools
+                elif tool_name == "start_qdrant_container":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            result = await phase9_tools.start_qdrant_container()
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to start Qdrant container: {str(e)}"
+                        })
+                
+                elif tool_name == "stop_qdrant_container":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            result = await phase9_tools.stop_qdrant_container()
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to stop Qdrant container: {str(e)}"
+                        })
+                
+                elif tool_name == "get_qdrant_status":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            result = await phase9_tools.get_qdrant_status()
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Qdrant Status: {json.dumps(result['status'], indent=2)}"}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get Qdrant status: {str(e)}"
+                        })
+                
+                elif tool_name == "create_project_database":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_name = arguments.get("project_name")
+                            project_id = arguments.get("project_id")
+                            result = await phase9_tools.create_project_database(project_name, project_id)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to create project database: {str(e)}"
+                        })
+                
+                elif tool_name == "list_project_databases":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            result = await phase9_tools.list_project_databases()
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Project Databases: {result['count']} found\n{json.dumps(result['projects'], indent=2)}"}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to list project databases: {str(e)}"
+                        })
+                
+                elif tool_name == "switch_project_database":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            result = await phase9_tools.switch_project_database(project_id)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to switch project database: {str(e)}"
+                        })
+                
+                elif tool_name == "archive_project_database":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            result = await phase9_tools.archive_project_database(project_id)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to archive project database: {str(e)}"
+                        })
+                
+                elif tool_name == "restore_project_database":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            result = await phase9_tools.restore_project_database(project_id)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to restore project database: {str(e)}"
+                        })
+                
+                elif tool_name == "delete_project_database":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            permanent = arguments.get("permanent", False)
+                            result = await phase9_tools.delete_project_database(project_id, permanent)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to delete project database: {str(e)}"
+                        })
+                
+                elif tool_name == "get_project_collection_stats":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            result = await phase9_tools.get_project_collection_stats(project_id)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Collection Stats for Project {result['project_id']}:\n{json.dumps(result['stats'], indent=2)}"}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get project collection stats: {str(e)}"
+                        })
+                
+                elif tool_name == "initialize_predetermined_knowledge":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            result = await phase9_tools.initialize_predetermined_knowledge(project_id)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to initialize predetermined knowledge: {str(e)}"
+                        })
+                
+                elif tool_name == "search_project_knowledge":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            query = arguments.get("query")
+                            knowledge_type = arguments.get("knowledge_type")
+                            project_id = arguments.get("project_id")
+                            limit = arguments.get("limit", 10)
+                            result = await phase9_tools.search_project_knowledge(query, knowledge_type, project_id, limit)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": f"Knowledge Search Results ({result['count']} found):\n{json.dumps(result['results'], indent=2)}"}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to search project knowledge: {str(e)}"
+                        })
+                
+                elif tool_name == "backup_project_data":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            backup_path = arguments.get("backup_path")
+                            result = await phase9_tools.backup_project_data(project_id, backup_path)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to backup project data: {str(e)}"
+                        })
+                
+                elif tool_name == "restore_project_data":
+                    try:
+                        if not ENHANCED_VECTOR_STORE_AVAILABLE:
+                            send_response(request_id, error={
+                                "code": -32603,
+                                "message": "Enhanced vector store not available. Phase 9.1 not implemented."
+                            })
+                        else:
+                            project_id = arguments.get("project_id")
+                            backup_path = arguments.get("backup_path")
+                            result = await phase9_tools.restore_project_data(project_id, backup_path)
+                            send_response(request_id, {
+                                "content": [{"type": "text", "text": result["message"]}],
+                                "structuredContent": result
+                            })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to restore project data: {str(e)}"
                         })
                 
                 else:
