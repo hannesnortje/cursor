@@ -32,6 +32,11 @@ try:
         disable_cross_project_communication, share_knowledge_between_projects,
         get_compression_stats, get_available_message_types, get_communication_health
     )
+    from src.mcp_tools.phase9_4_tools import (
+        get_available_knowledge_domains, get_knowledge_for_domain, get_all_knowledge,
+        search_knowledge, get_knowledge_statistics, initialize_project_knowledge,
+        get_knowledge_by_category, get_knowledge_by_priority
+    )
     QDRANT_AVAILABLE = True
     ENHANCED_VECTOR_STORE_AVAILABLE = True
     logger = logging.getLogger("enhanced-mcp-server")
@@ -3128,6 +3133,93 @@ def main():
                                 "properties": {},
                                 "required": []
                             }
+                        },
+                        # Phase 9.4: Predetermined Knowledge Bases Tools
+                        {
+                            "name": "get_available_knowledge_domains",
+                            "description": "Get available knowledge domains (pdca, agile, code_quality, security, testing, documentation)",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "get_knowledge_for_domain",
+                            "description": "Get knowledge items for a specific domain",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "domain": {"type": "string", "description": "Knowledge domain (pdca, agile, code_quality, security, testing, documentation)"}
+                                },
+                                "required": ["domain"]
+                            }
+                        },
+                        {
+                            "name": "get_all_knowledge",
+                            "description": "Get all knowledge bases with comprehensive content",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "search_knowledge",
+                            "description": "Search knowledge items by query and filters",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string", "description": "Search query"},
+                                    "domain": {"type": "string", "description": "Optional domain filter"},
+                                    "category": {"type": "string", "description": "Optional category filter"},
+                                    "priority": {"type": "string", "description": "Optional priority filter (high, medium, low)"}
+                                },
+                                "required": ["query"]
+                            }
+                        },
+                        {
+                            "name": "get_knowledge_statistics",
+                            "description": "Get statistics about the knowledge base",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "initialize_project_knowledge",
+                            "description": "Initialize predetermined knowledge for a project",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to initialize knowledge for"},
+                                    "domains": {"type": "array", "items": {"type": "string"}, "description": "Optional list of domains to initialize (default: all domains)"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "get_knowledge_by_category",
+                            "description": "Get knowledge items by category",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "category": {"type": "string", "description": "Category to filter by (methodology, development, security, testing, documentation)"}
+                                },
+                                "required": ["category"]
+                            }
+                        },
+                        {
+                            "name": "get_knowledge_by_priority",
+                            "description": "Get knowledge items by priority",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "priority": {"type": "string", "description": "Priority to filter by (high, medium, low)"}
+                                },
+                                "required": ["priority"]
+                            }
                         }
                     ]
                 }
@@ -4769,6 +4861,150 @@ def main():
                         send_response(request_id, error={
                             "code": -32603,
                             "message": f"Failed to get communication health: {str(e)}"
+                        })
+                
+                # Phase 9.4: Predetermined Knowledge Bases Tools
+                elif tool_name == "get_available_knowledge_domains":
+                    try:
+                        result = get_available_knowledge_domains()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get knowledge domains: {str(e)}"
+                        })
+                
+                elif tool_name == "get_knowledge_for_domain":
+                    try:
+                        domain = arguments.get("domain")
+                        if not domain:
+                            send_response(request_id, error={
+                                "code": -32602,
+                                "message": "Domain parameter is required"
+                            })
+                            return
+                        result = get_knowledge_for_domain(domain)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get knowledge for domain: {str(e)}"
+                        })
+                
+                elif tool_name == "get_all_knowledge":
+                    try:
+                        result = get_all_knowledge()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get all knowledge: {str(e)}"
+                        })
+                
+                elif tool_name == "search_knowledge":
+                    try:
+                        query = arguments.get("query")
+                        if not query:
+                            send_response(request_id, error={
+                                "code": -32602,
+                                "message": "Query parameter is required"
+                            })
+                            return
+                        domain = arguments.get("domain")
+                        category = arguments.get("category")
+                        priority = arguments.get("priority")
+                        result = search_knowledge(query, domain, category, priority)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to search knowledge: {str(e)}"
+                        })
+                
+                elif tool_name == "get_knowledge_statistics":
+                    try:
+                        result = get_knowledge_statistics()
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get knowledge statistics: {str(e)}"
+                        })
+                
+                elif tool_name == "initialize_project_knowledge":
+                    try:
+                        project_id = arguments.get("project_id")
+                        if not project_id:
+                            send_response(request_id, error={
+                                "code": -32602,
+                                "message": "Project ID parameter is required"
+                            })
+                            return
+                        domains = arguments.get("domains")
+                        result = initialize_project_knowledge(project_id, domains)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to initialize project knowledge: {str(e)}"
+                        })
+                
+                elif tool_name == "get_knowledge_by_category":
+                    try:
+                        category = arguments.get("category")
+                        if not category:
+                            send_response(request_id, error={
+                                "code": -32602,
+                                "message": "Category parameter is required"
+                            })
+                            return
+                        result = get_knowledge_by_category(category)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get knowledge by category: {str(e)}"
+                        })
+                
+                elif tool_name == "get_knowledge_by_priority":
+                    try:
+                        priority = arguments.get("priority")
+                        if not priority:
+                            send_response(request_id, error={
+                                "code": -32602,
+                                "message": "Priority parameter is required"
+                            })
+                            return
+                        result = get_knowledge_by_priority(priority)
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["message"]}],
+                            "structuredContent": result
+                        })
+                    except Exception as e:
+                        send_response(request_id, error={
+                            "code": -32603,
+                            "message": f"Failed to get knowledge by priority: {str(e)}"
                         })
                 
                 else:

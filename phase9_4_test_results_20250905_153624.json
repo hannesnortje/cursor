@@ -1,0 +1,149 @@
+{
+  "phase": "9.4",
+  "name": "Predetermined Knowledge Bases",
+  "timestamp": "2025-09-05T15:36:24.127905",
+  "tests": [
+    {
+      "name": "Knowledge Base Initialization",
+      "status": "PASSED",
+      "message": "Knowledge base initialized with 6 domains: ['pdca', 'agile', 'code_quality', 'security', 'testing', 'documentation']",
+      "details": {
+        "domains": [
+          "pdca",
+          "agile",
+          "code_quality",
+          "security",
+          "testing",
+          "documentation"
+        ]
+      }
+    },
+    {
+      "name": "PDCA Knowledge Content",
+      "status": "PASSED",
+      "message": "PDCA knowledge contains 5 items, found 5/5 key concepts",
+      "details": {
+        "item_count": 5,
+        "titles": [
+          "PDCA Framework Overview",
+          "Plan Phase Best Practices",
+          "Do Phase Implementation",
+          "Check Phase Analysis",
+          "Act Phase Standardization"
+        ]
+      }
+    },
+    {
+      "name": "Agile Knowledge Content",
+      "status": "PASSED",
+      "message": "Agile knowledge contains 5 items, found 5/5 key concepts",
+      "details": {
+        "item_count": 5,
+        "titles": [
+          "Agile Manifesto Principles",
+          "Scrum Framework Overview",
+          "User Story Writing",
+          "Sprint Planning Best Practices",
+          "Retrospective Techniques"
+        ]
+      }
+    },
+    {
+      "name": "Knowledge Search Functionality",
+      "status": "FAILED",
+      "message": "Expected at least 3 PDCA search results, got 1",
+      "error": "Unknown error"
+    },
+    {
+      "name": "Knowledge Statistics",
+      "status": "PASSED",
+      "message": "Knowledge base contains 24 items across 5 categories",
+      "details": {
+        "total_items": 24,
+        "categories": {
+          "methodology": 10,
+          "development": 4,
+          "security": 3,
+          "testing": 4,
+          "documentation": 3
+        },
+        "priorities": {
+          "high": 18,
+          "medium": 6
+        }
+      }
+    },
+    {
+      "name": "MCP Tools Integration",
+      "status": "FAILED",
+      "message": "Failed to test MCP tools integration: 'coroutine' object is not subscriptable",
+      "error": "Unknown error"
+    },
+    {
+      "name": "Knowledge Item Structure",
+      "status": "PASSED",
+      "message": "Knowledge item structure is valid with all required attributes",
+      "details": {
+        "title": "PDCA Framework Overview",
+        "category": "methodology",
+        "priority": "high",
+        "tags_count": 4
+      }
+    },
+    {
+      "name": "Cross-Domain Knowledge Coverage",
+      "status": "PASSED",
+      "message": "Cross-domain coverage: 6/6 domains have content",
+      "details": {
+        "pdca": {
+          "count": 5,
+          "has_content": true,
+          "categories": [
+            "methodology"
+          ]
+        },
+        "agile": {
+          "count": 5,
+          "has_content": true,
+          "categories": [
+            "methodology"
+          ]
+        },
+        "code_quality": {
+          "count": 4,
+          "has_content": true,
+          "categories": [
+            "development"
+          ]
+        },
+        "security": {
+          "count": 3,
+          "has_content": true,
+          "categories": [
+            "security"
+          ]
+        },
+        "testing": {
+          "count": 4,
+          "has_content": true,
+          "categories": [
+            "testing"
+          ]
+        },
+        "documentation": {
+          "count": 3,
+          "has_content": true,
+          "categories": [
+            "documentation"
+          ]
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "passed": 6,
+    "failed": 2,
+    "success_rate": 75.0
+  }
+}
