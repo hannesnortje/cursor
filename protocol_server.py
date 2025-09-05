@@ -76,9 +76,10 @@ class AgentSystem:
                 logger.info(f"Initialized instance {self.instance_id} with dashboard port {self.instance_info.dashboard_port}")
                 
                 # Start dashboard spawning in background (non-blocking)
-                logger.info("Starting dashboard spawning...")
+                logger.info("🔧 DEBUG: Starting dashboard spawning...")
+                logger.info(f"🔧 DEBUG: Instance info before spawning: {self.instance_info}")
                 self._start_dashboard_spawning()
-                logger.info("Dashboard spawning started")
+                logger.info("🔧 DEBUG: Dashboard spawning started")
             else:
                 logger.info(f"Instance {self.instance_id} initialized without registry")
         except Exception as e:
@@ -94,6 +95,17 @@ class AgentSystem:
             
             def spawn_dashboard():
                 try:
+                    logger.info(f"🔧 DEBUG: Starting dashboard spawn for instance {self.instance_id}")
+                    logger.info(f"🔧 DEBUG: Instance info: {self.instance_info}")
+                    
+                    if not self.instance_info:
+                        logger.error("🔧 DEBUG: No instance_info available!")
+                        return
+                    
+                    if not self.instance_info.dashboard_port:
+                        logger.error("🔧 DEBUG: No dashboard_port in instance_info!")
+                        return
+                    
                     # Simple subprocess approach instead of async
                     dashboard_cmd = [
                         sys.executable, "-m", "src.dashboard.backend.main",
@@ -109,6 +121,11 @@ class AgentSystem:
                         "PYTHONPATH": os.getcwd()
                     })
                     
+                    logger.info(f"🔧 DEBUG: Starting dashboard with command: {' '.join(dashboard_cmd)}")
+                    logger.info(f"🔧 DEBUG: Dashboard port: {self.instance_info.dashboard_port}")
+                    logger.info(f"🔧 DEBUG: Instance ID: {self.instance_id}")
+                    logger.info(f"🔧 DEBUG: Working directory: {os.getcwd()}")
+                    
                     # Start dashboard process
                     process = subprocess.Popen(
                         dashboard_cmd,
@@ -118,10 +135,23 @@ class AgentSystem:
                         stderr=subprocess.PIPE
                     )
                     
-                    logger.info(f"Started dashboard process {process.pid} for instance {self.instance_id}")
+                    logger.info(f"🔧 DEBUG: Started dashboard process {process.pid} for instance {self.instance_id}")
+                    
+                    # Check if process started successfully
+                    import time
+                    time.sleep(1)  # Give it a moment to start
+                    if process.poll() is None:
+                        logger.info(f"🔧 DEBUG: Dashboard process {process.pid} is running")
+                    else:
+                        logger.error(f"🔧 DEBUG: Dashboard process {process.pid} exited immediately!")
+                        stdout, stderr = process.communicate()
+                        logger.error(f"🔧 DEBUG: stdout: {stdout.decode()}")
+                        logger.error(f"🔧 DEBUG: stderr: {stderr.decode()}")
                     
                 except Exception as e:
-                    logger.warning(f"Failed to spawn dashboard: {e}")
+                    logger.error(f"🔧 DEBUG: Failed to spawn dashboard: {e}")
+                    import traceback
+                    logger.error(f"🔧 DEBUG: Traceback: {traceback.format_exc()}")
             
             # Start dashboard spawning in background thread
             dashboard_thread = threading.Thread(target=spawn_dashboard, daemon=True)
