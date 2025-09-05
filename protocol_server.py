@@ -3648,5 +3648,40 @@ def main():
             if 'request_id' in locals():
                 send_response(request_id, error={"code": -32603, "message": f"Internal error: {str(e)}"})
 
+def cleanup_on_exit():
+    """Clean up MCP server and dashboard on exit."""
+    logger.info("🧹 Cleaning up MCP server resources...")
+    try:
+        import subprocess
+        subprocess.run(["pkill", "-f", "dashboard.*--port"], check=False)
+        logger.info("✅ Dashboard processes cleaned up")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to cleanup dashboards: {e}")
+
 if __name__ == "__main__":
-    main()
+    import atexit
+    import signal
+    
+    # Register cleanup function
+    atexit.register(cleanup_on_exit)
+    
+    # Handle signals
+    def signal_handler(signum, frame):
+        logger.info(f"📡 Received signal {signum}, shutting down...")
+        cleanup_on_exit()
+        exit(0)
+    
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        main()
+    except EOFError:
+        logger.info("📡 Cursor disconnected (EOF received)")
+        cleanup_on_exit()
+    except KeyboardInterrupt:
+        logger.info("📡 Received keyboard interrupt")
+        cleanup_on_exit()
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {e}")
+        cleanup_on_exit()
