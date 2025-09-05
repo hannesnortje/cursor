@@ -9,6 +9,16 @@ from ..database import get_enhanced_vector_store, get_project_manager, get_docke
 
 logger = logging.getLogger(__name__)
 
+# Global instance for synchronous access
+_phase9_tools = None
+
+def get_phase9_tools():
+    """Get the global Phase9MCPTools instance."""
+    global _phase9_tools
+    if _phase9_tools is None:
+        _phase9_tools = Phase9MCPTools()
+    return _phase9_tools
+
 
 class Phase9MCPTools:
     """MCP tools for Phase 9.1 project-specific Qdrant databases."""
@@ -373,5 +383,73 @@ class Phase9MCPTools:
             }
 
 
-# Global Phase 9 MCP tools instance
-phase9_tools = Phase9MCPTools()
+# Synchronous wrapper functions for MCP server
+def start_qdrant_container() -> Dict[str, Any]:
+    """Start Qdrant Docker container (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.start_qdrant_container())
+
+def stop_qdrant_container() -> Dict[str, Any]:
+    """Stop Qdrant Docker container (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.stop_qdrant_container())
+
+def get_qdrant_status() -> Dict[str, Any]:
+    """Get Qdrant container status (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.get_qdrant_status())
+
+def create_project_database(project_id: str, project_name: str, description: str = "") -> Dict[str, Any]:
+    """Create a new project-specific Qdrant database (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.create_project_database(project_name, project_id))
+
+def list_project_databases() -> Dict[str, Any]:
+    """List all project databases (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.list_project_databases())
+
+def switch_project_database(project_id: str) -> Dict[str, Any]:
+    """Switch to a specific project database (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.switch_project_database(project_id))
+
+def archive_project_database(project_id: str) -> Dict[str, Any]:
+    """Archive a project database (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.archive_project_database(project_id))
+
+def restore_project_database(project_id: str) -> Dict[str, Any]:
+    """Restore an archived project database (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.restore_project_database(project_id))
+
+def delete_project_database(project_id: str) -> Dict[str, Any]:
+    """Delete a project database (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.delete_project_database(project_id))
+
+def get_project_collection_stats(project_id: str) -> Dict[str, Any]:
+    """Get collection statistics for a project (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.get_project_collection_stats(project_id))
+
+def initialize_predetermined_knowledge(project_id: str, knowledge_types: List[str] = None) -> Dict[str, Any]:
+    """Initialize predetermined knowledge base for a project (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.initialize_predetermined_knowledge(project_id, knowledge_types))
+
+def search_project_knowledge(project_id: str, query: str, collection: str = "knowledge", limit: int = 10) -> Dict[str, Any]:
+    """Search knowledge in a project database (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.search_project_knowledge(project_id, query, collection, limit))
+
+def backup_project_data(project_id: str, backup_path: str = None) -> Dict[str, Any]:
+    """Backup project data (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.backup_project_data(project_id, backup_path))
+
+def restore_project_data(project_id: str, backup_path: str) -> Dict[str, Any]:
+    """Restore project data (synchronous wrapper)."""
+    tools = get_phase9_tools()
+    return asyncio.run(tools.restore_project_data(project_id, backup_path))

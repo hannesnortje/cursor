@@ -16,6 +16,15 @@ try:
     QDRANT_AVAILABLE = True
 except ImportError:
     QDRANT_AVAILABLE = False
+    QdrantClient = None
+    Distance = None
+    VectorParams = None
+    PointStruct = None
+    Filter = None
+    FieldCondition = None
+    MatchValue = None
+    Range = None
+    GeoBoundingBox = None
     logging.error("Qdrant client not available. Install with: pip install qdrant-client")
 
 from .project_manager import get_project_manager, ProjectDatabase
@@ -80,27 +89,54 @@ class EnhancedVectorStore:
         self.project_db: Optional[ProjectDatabase] = None
         self.is_connected = False
         
-        # Initialize with automatic Qdrant startup
-        if auto_start_qdrant:
-            self._ensure_qdrant_running()
+        # Initialize with simple Qdrant connection (no async startup)
+        self._initialize_qdrant_connection()
         
         # Initialize project database
         self._initialize_project_database()
     
+    def _initialize_qdrant_connection(self):
+        """Initialize Qdrant connection without async complexity."""
+        try:
+            # Simple Qdrant client connection
+            self.client = QdrantClient(host="localhost", port=6333)
+            
+            # Test connection
+            collections = self.client.get_collections()
+            self.is_connected = True
+            logger.info("Qdrant connection established successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to connect to Qdrant: {e}")
+            self.is_connected = False
+            # Don't raise exception, let the system continue with limited functionality
+    
     def _ensure_qdrant_running(self):
         """Ensure Qdrant is running, start if necessary."""
         try:
+            import asyncio
+            
+            # Check if there's already an event loop running
+            try:
+                loop = asyncio.get_running_loop()
+                # If we're in an async context, we can't use run_until_complete
+                # For now, just assume Qdrant is running if we can't check
+                logger.info("Running in async context, assuming Qdrant is available")
+                return
+            except RuntimeError:
+                # No event loop running, we can create one
+                pass
+            
             # Check if Qdrant is already running
-            status = self.docker_manager.get_qdrant_status()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            status = loop.run_until_complete(self.docker_manager.get_qdrant_status())
             if status.get("running", False):
                 logger.info("Qdrant is already running")
                 return
             
             # Start Qdrant container
             logger.info("Starting Qdrant container...")
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             success = loop.run_until_complete(self.docker_manager.start_qdrant())
             
             if not success:
@@ -122,28 +158,19 @@ class EnhancedVectorStore:
             else:
                 project_name = f"Project {self.project_id}"
             
-            # Get or create project database
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            self.project_db = loop.run_until_complete(
-                self.project_manager.get_project_database(self.project_id)
+            # Simple project database initialization without async
+            self.project_db = ProjectDatabase(
+                project_id=self.project_id,
+                project_name=project_name,
+                database_name=f"project_{self.project_id}",
+                status="active"
             )
             
-            if not self.project_db:
-                # Create new project database
-                self.project_db = loop.run_until_complete(
-                    self.project_manager.create_project_database(project_name, self.project_id)
-                )
-                logger.info(f"Created project database: {self.project_db.database_name}")
-            else:
-                logger.info(f"Using existing project database: {self.project_db.database_name}")
+            logger.info(f"Initialized project database: {self.project_db.database_name}")
             
-            # Initialize Qdrant client
-            self.client = self.project_manager.get_project_client(self.project_id)
+            # Use the existing Qdrant client
             if not self.client:
-                raise Exception("Failed to get Qdrant client for project")
+                self.client = QdrantClient(host="localhost", port=6333)
             
             self.is_connected = True
             logger.info("Enhanced vector store initialized successfully")

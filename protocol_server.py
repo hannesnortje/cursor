@@ -14,7 +14,13 @@ import requests
 # Import the enhanced vector store system for Phase 9.1
 try:
     from src.database import get_enhanced_vector_store, get_project_manager, get_docker_manager
-    from src.mcp_tools.phase9_tools import phase9_tools
+    from src.mcp_tools.phase9_tools import (
+        start_qdrant_container, stop_qdrant_container, get_qdrant_status,
+        create_project_database, list_project_databases, switch_project_database,
+        archive_project_database, restore_project_database, delete_project_database,
+        get_project_collection_stats, initialize_predetermined_knowledge,
+        search_project_knowledge, backup_project_data, restore_project_data
+    )
     QDRANT_AVAILABLE = True
     ENHANCED_VECTOR_STORE_AVAILABLE = True
     logger = logging.getLogger("enhanced-mcp-server")
@@ -3944,7 +3950,7 @@ def main():
                                 "message": "Enhanced vector store not available. Phase 9.1 not implemented."
                             })
                         else:
-                            result = await phase9_tools.start_qdrant_container()
+                            result = start_qdrant_container()
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -3963,7 +3969,7 @@ def main():
                                 "message": "Enhanced vector store not available. Phase 9.1 not implemented."
                             })
                         else:
-                            result = await phase9_tools.stop_qdrant_container()
+                            result = stop_qdrant_container()
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -3982,7 +3988,7 @@ def main():
                                 "message": "Enhanced vector store not available. Phase 9.1 not implemented."
                             })
                         else:
-                            result = await phase9_tools.get_qdrant_status()
+                            result = get_qdrant_status()
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": f"Qdrant Status: {json.dumps(result['status'], indent=2)}"}],
                                 "structuredContent": result
@@ -4003,7 +4009,7 @@ def main():
                         else:
                             project_name = arguments.get("project_name")
                             project_id = arguments.get("project_id")
-                            result = await phase9_tools.create_project_database(project_name, project_id)
+                            result = create_project_database(project_id, project_name)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4022,7 +4028,7 @@ def main():
                                 "message": "Enhanced vector store not available. Phase 9.1 not implemented."
                             })
                         else:
-                            result = await phase9_tools.list_project_databases()
+                            result = list_project_databases()
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": f"Project Databases: {result['count']} found\n{json.dumps(result['projects'], indent=2)}"}],
                                 "structuredContent": result
@@ -4042,7 +4048,7 @@ def main():
                             })
                         else:
                             project_id = arguments.get("project_id")
-                            result = await phase9_tools.switch_project_database(project_id)
+                            result = switch_project_database(project_id)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4062,7 +4068,7 @@ def main():
                             })
                         else:
                             project_id = arguments.get("project_id")
-                            result = await phase9_tools.archive_project_database(project_id)
+                            result = archive_project_database(project_id)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4082,7 +4088,7 @@ def main():
                             })
                         else:
                             project_id = arguments.get("project_id")
-                            result = await phase9_tools.restore_project_database(project_id)
+                            result = restore_project_database(project_id)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4103,7 +4109,7 @@ def main():
                         else:
                             project_id = arguments.get("project_id")
                             permanent = arguments.get("permanent", False)
-                            result = await phase9_tools.delete_project_database(project_id, permanent)
+                            result = delete_project_database(project_id)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4123,7 +4129,7 @@ def main():
                             })
                         else:
                             project_id = arguments.get("project_id")
-                            result = await phase9_tools.get_project_collection_stats(project_id)
+                            result = get_project_collection_stats(project_id)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": f"Collection Stats for Project {result['project_id']}:\n{json.dumps(result['stats'], indent=2)}"}],
                                 "structuredContent": result
@@ -4143,7 +4149,7 @@ def main():
                             })
                         else:
                             project_id = arguments.get("project_id")
-                            result = await phase9_tools.initialize_predetermined_knowledge(project_id)
+                            result = initialize_predetermined_knowledge(project_id)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4166,7 +4172,7 @@ def main():
                             knowledge_type = arguments.get("knowledge_type")
                             project_id = arguments.get("project_id")
                             limit = arguments.get("limit", 10)
-                            result = await phase9_tools.search_project_knowledge(query, knowledge_type, project_id, limit)
+                            result = search_project_knowledge(project_id, query, knowledge_type, limit)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": f"Knowledge Search Results ({result['count']} found):\n{json.dumps(result['results'], indent=2)}"}],
                                 "structuredContent": result
@@ -4187,7 +4193,7 @@ def main():
                         else:
                             project_id = arguments.get("project_id")
                             backup_path = arguments.get("backup_path")
-                            result = await phase9_tools.backup_project_data(project_id, backup_path)
+                            result = backup_project_data(project_id, backup_path)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result
@@ -4208,7 +4214,7 @@ def main():
                         else:
                             project_id = arguments.get("project_id")
                             backup_path = arguments.get("backup_path")
-                            result = await phase9_tools.restore_project_data(project_id, backup_path)
+                            result = restore_project_data(project_id, backup_path)
                             send_response(request_id, {
                                 "content": [{"type": "text", "text": result["message"]}],
                                 "structuredContent": result

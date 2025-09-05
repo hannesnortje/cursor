@@ -17,6 +17,10 @@ try:
     QDRANT_AVAILABLE = True
 except ImportError:
     QDRANT_AVAILABLE = False
+    QdrantClient = None
+    Distance = None
+    VectorParams = None
+    PointStruct = None
     logging.error("Qdrant client not available. Install with: pip install qdrant-client")
 
 logger = logging.getLogger(__name__)
