@@ -6,6 +6,10 @@ import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import threading
+import subprocess
+import os
+import time
+import requests
 
 # Import the new Qdrant vector store system
 try:
@@ -67,6 +71,10 @@ class AgentSystem:
             logger.info(f"Starting instance initialization for {self.instance_id}")
             if self.registry and not self.instance_info:
                 logger.info("Registry available, registering instance...")
+                
+                # Clean up old instances before registering new one
+                self._cleanup_old_instances()
+                
                 self.instance_info = self.registry.register_instance(
                     instance_id=self.instance_id,
                     cursor_client_id=cursor_client_id,
@@ -75,7 +83,12 @@ class AgentSystem:
                 self.instance_id = self.instance_info.instance_id
                 logger.info(f"Initialized instance {self.instance_id} with dashboard port {self.instance_info.dashboard_port}")
                 
-                # Start dashboard spawning in background (non-blocking)
+                # Mark instance as started with current process ID
+                import os
+                self.registry.start_instance(self.instance_id, os.getpid())
+                logger.info(f"Marked instance {self.instance_id} as started with PID {os.getpid()}")
+                
+                # Start dashboard spawning immediately (blocking for a moment)
                 logger.info("🔧 DEBUG: Starting dashboard spawning...")
                 logger.info(f"🔧 DEBUG: Instance info before spawning: {self.instance_info}")
                 self._start_dashboard_spawning()
@@ -86,12 +99,77 @@ class AgentSystem:
             logger.warning(f"Failed to initialize instance (continuing without instance management): {e}")
             # Continue without instance management - don't break MCP server
     
+    def _cleanup_old_instances(self):
+        """Clean up old instances from registry."""
+        try:
+            if not self.registry:
+                return
+                
+            import time
+            from datetime import datetime
+            current_time = time.time()
+            old_instances = []
+            
+            # Find instances to clean up
+            for instance in self.registry.instances.values():
+                should_remove = False
+                
+                # Remove instances that are stopped (regardless of timestamp)
+                if instance.status.value == "stopped":
+                    should_remove = True
+                    logger.info(f"🧹 Found stopped instance: {instance.instance_id}")
+                
+                # Remove instances that are starting but have no process_id (orphaned)
+                elif instance.status.value == "starting" and not instance.process_id:
+                    should_remove = True
+                    logger.info(f"🧹 Found orphaned starting instance: {instance.instance_id}")
+                
+                # Remove instances that are running but the process is dead or suspended
+                elif instance.status.value == "running" and instance.process_id:
+                    try:
+                        import os
+                        import psutil
+                        # Check if process exists and is actually running (not suspended)
+                        process = psutil.Process(instance.process_id)
+                        if process.status() in ['stopped', 'zombie', 'dead']:
+                            should_remove = True
+                            logger.info(f"🧹 Found suspended/dead running instance: {instance.instance_id} (status: {process.status()})")
+                        else:
+                            # Also check if it's been running for too long without activity
+                            import time
+                            current_time = time.time()
+                            if hasattr(instance, 'started_at') and instance.started_at:
+                                started_dt = datetime.fromisoformat(instance.started_at)
+                                started_time = started_dt.timestamp()
+                                if current_time - started_time > 300:  # 5 minutes
+                                    should_remove = True
+                                    logger.info(f"🧹 Found old running instance: {instance.instance_id}")
+                    except (OSError, ProcessLookupError) as e:
+                        should_remove = True
+                        logger.info(f"🧹 Found dead running instance: {instance.instance_id} ({e})")
+                    except Exception as e:
+                        logger.warning(f"Error checking process {instance.process_id}: {e}")
+                        # If we can't check, assume it's dead
+                        should_remove = True
+                        logger.info(f"🧹 Found uncheckable running instance: {instance.instance_id}")
+                
+                if should_remove:
+                    old_instances.append(instance.instance_id)
+            
+            # Remove old instances
+            for old_id in old_instances:
+                self.registry.remove_instance(old_id)
+                logger.info(f"✅ Cleaned up old instance: {old_id}")
+                
+            if old_instances:
+                logger.info(f"🧹 Cleaned up {len(old_instances)} old instances")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to cleanup old instances: {e}")
+
     def _start_dashboard_spawning(self):
         """Start dashboard spawning in background thread."""
         try:
-            import threading
-            import subprocess
-            import os
             
             def spawn_dashboard():
                 try:
@@ -106,9 +184,10 @@ class AgentSystem:
                         logger.error("🔧 DEBUG: No dashboard_port in instance_info!")
                         return
                     
-                    # Simple subprocess approach instead of async
+                    # Use the correct Python interpreter from Poetry virtual environment
+                    python_path = "/home/hannesn/.cache/pypoetry/virtualenvs/mcp-server-4zyLa6-K-py3.12/bin/python"
                     dashboard_cmd = [
-                        sys.executable, "-m", "src.dashboard.backend.main",
+                        python_path, "/media/hannesn/storage/Code/cursor/src/dashboard/backend/main.py",
                         "--port", str(self.instance_info.dashboard_port),
                         "--instance-id", self.instance_id
                     ]
@@ -124,24 +203,53 @@ class AgentSystem:
                     logger.info(f"🔧 DEBUG: Starting dashboard with command: {' '.join(dashboard_cmd)}")
                     logger.info(f"🔧 DEBUG: Dashboard port: {self.instance_info.dashboard_port}")
                     logger.info(f"🔧 DEBUG: Instance ID: {self.instance_id}")
-                    logger.info(f"🔧 DEBUG: Working directory: {os.getcwd()}")
                     
-                    # Start dashboard process
+                    # Start dashboard process from the correct directory
+                    dashboard_dir = "/media/hannesn/storage/Code/cursor/src/dashboard/backend"
                     process = subprocess.Popen(
                         dashboard_cmd,
                         env=env,
-                        cwd=os.getcwd(),
+                        cwd=dashboard_dir,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE
                     )
                     
                     logger.info(f"🔧 DEBUG: Started dashboard process {process.pid} for instance {self.instance_id}")
                     
-                    # Check if process started successfully
+                    # Check if process started successfully (non-blocking)
                     import time
-                    time.sleep(1)  # Give it a moment to start
+                    time.sleep(3)  # Give it more time to start
                     if process.poll() is None:
                         logger.info(f"🔧 DEBUG: Dashboard process {process.pid} is running")
+                        
+                        # Wait for dashboard to be ready and then open in browser
+                        dashboard_url = f"http://localhost:{self.instance_info.dashboard_port}"
+                        logger.info(f"🌐 Waiting for dashboard to be ready at {dashboard_url}")
+                        
+                        # Try to open browser with retry logic
+                        max_retries = 5
+                        for attempt in range(max_retries):
+                            try:
+                                response = requests.get(dashboard_url, timeout=2)
+                                if response.status_code == 200:
+                                    logger.info(f"✅ Dashboard is ready at {dashboard_url}")
+                                    subprocess.Popen(['xdg-open', dashboard_url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                    logger.info(f"🌐 Dashboard opened in browser: {dashboard_url}")
+                                    break
+                                else:
+                                    logger.info(f"⏳ Dashboard not ready yet (status {response.status_code}), attempt {attempt + 1}/{max_retries}")
+                            except Exception as e:
+                                logger.info(f"⏳ Dashboard not ready yet ({e}), attempt {attempt + 1}/{max_retries}")
+                            
+                            if attempt < max_retries - 1:
+                                time.sleep(2)
+                        else:
+                            logger.warning(f"⚠️ Dashboard not ready after {max_retries} attempts, opening anyway")
+                            try:
+                                subprocess.Popen(['xdg-open', dashboard_url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                logger.info(f"🌐 Dashboard opened in browser: {dashboard_url}")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to open dashboard in browser: {e}")
                     else:
                         logger.error(f"🔧 DEBUG: Dashboard process {process.pid} exited immediately!")
                         stdout, stderr = process.communicate()
@@ -1613,6 +1721,7 @@ What would you like to work on?""",
 
 # Initialize agent system
 agent_system = AgentSystem()
+current_instance_id = None
 
 def send_response(request_id, result=None, error=None):
     """Send a JSON-RPC response."""
@@ -1642,8 +1751,9 @@ def main():
     logger.info("Starting enhanced MCP server with agent system...")
     
     # Initialize agent system first (core functionality)
-    global agent_system
+    global agent_system, current_instance_id
     agent_system = AgentSystem()
+    current_instance_id = agent_system.instance_id
     logger.info(f"Initialized MCP server instance {agent_system.instance_id}")
     
     # Try to initialize instance management (non-blocking)
@@ -1984,33 +2094,26 @@ def main():
                 # Automatically spawn dashboard for Cursor connection
                 try:
                     logger.info("Auto-spawning dashboard for Cursor connection...")
-                    from src.dashboard.dashboard_spawner import get_dashboard_spawner
-                    spawner = get_dashboard_spawner()
                     
-                    # Get a port for the dashboard
-                    port = agent_system.registry.find_available_dashboard_port() if agent_system.registry else 5024
-                    
-                    # Create instance info for the dashboard
-                    from src.core.instance_info import InstanceInfo, InstanceStatus
-                    instance_info = InstanceInfo(
-                        instance_id=agent_system.instance_id,
-                        status=InstanceStatus.RUNNING,
-                        dashboard_port=port,
-                        started_at=datetime.now(),
-                        working_directory="/media/hannesn/storage/Code/cursor"
-                    )
-                    
-                    # Spawn dashboard asynchronously
-                    import asyncio
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    success = loop.run_until_complete(spawner.spawn_dashboard(agent_system.instance_id, port, instance_info))
-                    loop.close()
-                    
-                    if success:
-                        logger.info(f"Dashboard auto-spawned successfully on port {port}")
+                    # Only spawn if we have instance info and no dashboard is running
+                    if agent_system.instance_info and agent_system.instance_info.dashboard_port:
+                        # Check if dashboard is already running for this instance
+                        import subprocess
+                        try:
+                            result = subprocess.run(['pgrep', '-f', f'dashboard.*--instance-id {agent_system.instance_id}'], 
+                                                  capture_output=True, text=True)
+                            if result.returncode == 0:
+                                logger.info(f"Dashboard already running for instance {agent_system.instance_id}")
+                            else:
+                                # Spawn dashboard using the existing mechanism
+                                logger.info(f"Spawning dashboard for instance {agent_system.instance_id} on port {agent_system.instance_info.dashboard_port}")
+                                agent_system._start_dashboard_spawning()
+                        except Exception as e:
+                            logger.warning(f"Failed to check for existing dashboard: {e}")
+                            # Try to spawn anyway
+                            agent_system._start_dashboard_spawning()
                     else:
-                        logger.warning("Failed to auto-spawn dashboard")
+                        logger.info("No instance info available for dashboard spawning")
                 except Exception as e:
                     logger.warning(f"Error auto-spawning dashboard: {e}")
                 
@@ -3680,10 +3783,108 @@ def main():
 
 def cleanup_on_exit():
     """Clean up MCP server and dashboard on exit."""
+    global current_instance_id
     logger.info("🧹 Cleaning up MCP server resources...")
     try:
         import subprocess
-        subprocess.run(["pkill", "-f", "dashboard.*--port"], check=False)
+        
+        # Only cleanup dashboard for current instance
+        if current_instance_id:
+            logger.info(f"🧹 Cleaning up dashboard for instance {current_instance_id}")
+            
+            # First, try to gracefully shutdown the dashboard via API
+            try:
+                from src.core.instance_registry import get_registry
+                registry = get_registry()
+                if registry and current_instance_id in registry.instances:
+                    instance_info = registry.instances[current_instance_id]
+                    dashboard_url = f"http://localhost:{instance_info.dashboard_port}"
+                    
+                    logger.info(f"🔄 Sending graceful shutdown request to {dashboard_url}")
+                    response = requests.post(f"{dashboard_url}/api/shutdown", 
+                                           json={"reason": "cursor_disconnected", 
+                                                "timestamp": datetime.now().isoformat()}, 
+                                           timeout=2)
+                    if response.status_code == 200:
+                        logger.info("✅ Dashboard gracefully shutdown via API")
+                        # Give it a moment to shutdown gracefully
+                        time.sleep(1)
+                        
+                        # Try to close the browser tab
+                        try:
+                            logger.info("🔄 Attempting to close browser tab...")
+                            # Try to close the browser tab using xdotool (if available)
+                            subprocess.run(["xdotool", "search", "--name", f"localhost:{instance_info.dashboard_port}", "windowclose"], 
+                                         check=False, timeout=2)
+                            logger.info("✅ Browser tab close command sent")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Could not close browser tab: {e}")
+                    else:
+                        logger.warning(f"⚠️ Dashboard API shutdown failed: {response.status_code}")
+                else:
+                    logger.warning("⚠️ No registry or instance info available for graceful shutdown")
+            except Exception as e:
+                logger.warning(f"⚠️ Graceful shutdown failed: {e}")
+            
+            # Force kill the dashboard process if it's still running
+            subprocess.run(["pkill", "-f", f"dashboard.*--instance-id {current_instance_id}"], check=False)
+            
+            # Update registry to mark instance as stopped
+            try:
+                from src.core.instance_registry import get_registry
+                registry = get_registry()
+                if registry:
+                    registry.stop_instance(current_instance_id)
+                    logger.info(f"✅ Instance {current_instance_id} marked as stopped in registry")
+                    
+                    # Clean up old instances (more aggressive cleanup on exit)
+                    import time
+                    from datetime import datetime
+                    current_time = time.time()
+                    old_instances = []
+                    
+                    for instance in registry.instances.values():
+                        should_remove = False
+                        
+                        # Remove stopped instances older than 5 minutes
+                        if instance.status.value == "stopped" and instance.stopped_at:
+                            stopped_dt = datetime.fromisoformat(instance.stopped_at)
+                            stopped_time = stopped_dt.timestamp()
+                            if current_time - stopped_time > 300:  # 5 minutes
+                                should_remove = True
+                                logger.info(f"🧹 Found old stopped instance: {instance.instance_id}")
+                        
+                        # Remove starting instances with no process_id (orphaned)
+                        elif instance.status.value == "starting" and not instance.process_id:
+                            should_remove = True
+                            logger.info(f"🧹 Found orphaned starting instance: {instance.instance_id}")
+                        
+                        # Remove running instances where process is dead
+                        elif instance.status.value == "running" and instance.process_id:
+                            try:
+                                import os
+                                os.kill(instance.process_id, 0)  # Check if process exists
+                            except (OSError, ProcessLookupError):
+                                should_remove = True
+                                logger.info(f"🧹 Found dead running instance: {instance.instance_id}")
+                        
+                        if should_remove:
+                            old_instances.append(instance.instance_id)
+                    
+                    # Remove old instances
+                    for old_id in old_instances:
+                        registry.remove_instance(old_id)
+                        logger.info(f"🧹 Removed old instance {old_id} from registry")
+                        
+                else:
+                    logger.warning("⚠️ Registry not available for cleanup")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to update registry: {e}")
+        else:
+            # Fallback: kill all dashboards if no instance ID
+            logger.warning("⚠️ No instance ID available, cleaning up all dashboards")
+            subprocess.run(["pkill", "-f", "dashboard.*--port"], check=False)
+        
         logger.info("✅ Dashboard processes cleaned up")
     except Exception as e:
         logger.warning(f"⚠️ Failed to cleanup dashboards: {e}")

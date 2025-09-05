@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import uvicorn
 
 # Import will be handled when running as module
@@ -30,6 +31,11 @@ except ImportError:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Request models
+class ShutdownRequest(BaseModel):
+    reason: str
+    timestamp: str
 
 # Create FastAPI application
 app = FastAPI(
@@ -253,6 +259,11 @@ async def rollback_to_version(version: str):
         logger.error(f"Failed to rollback to version {version}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to rollback: {str(e)}")
 
+@app.get("/api/health")
+async def get_health():
+    """Simple health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
 @app.get("/api/lit/health")
 async def get_lit_health():
     """Get Lit 3 system health and metrics."""
@@ -272,6 +283,47 @@ async def get_lit_health():
     except Exception as e:
         logger.error(f"Failed to get health status: {e}")
         raise HTTPException(status_code=500, detail="Failed to get health status")
+
+@app.post("/api/shutdown")
+async def shutdown_dashboard(request: ShutdownRequest):
+    """Handle dashboard shutdown request from MCP server."""
+    try:
+        logger.info(f"🔄 Dashboard shutdown requested: {request.reason} at {request.timestamp}")
+        
+        # Update registry to mark instance as stopped
+        instance_id = os.environ.get('MCP_INSTANCE_ID')
+        if instance_id:
+            try:
+                from src.core.instance_registry import get_registry
+                registry = get_registry()
+                if registry:
+                    registry.stop_instance(instance_id)
+                    logger.info(f"✅ Instance {instance_id} marked as stopped in registry")
+                else:
+                    logger.warning("⚠️ Registry not available for cleanup")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to update registry: {e}")
+        
+        # Schedule graceful shutdown
+        import threading
+        import time
+        
+        def delayed_shutdown():
+            time.sleep(1)  # Give time for response to be sent
+            logger.info("🔄 Initiating graceful dashboard shutdown...")
+            import os
+            import signal
+            os.kill(os.getpid(), signal.SIGTERM)
+        
+        # Start shutdown in background thread
+        shutdown_thread = threading.Thread(target=delayed_shutdown, daemon=True)
+        shutdown_thread.start()
+        
+        return {"status": "shutdown_initiated", "reason": request.reason, "timestamp": request.timestamp}
+        
+    except Exception as e:
+        logger.error(f"Failed to handle shutdown request: {e}")
+        raise HTTPException(status_code=500, detail="Failed to handle shutdown request")
 
 if __name__ == "__main__":
     import argparse

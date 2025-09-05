@@ -188,7 +188,8 @@ class InstanceRegistry:
     
     def stop_instance(self, instance_id: str) -> bool:
         """Mark instance as stopped."""
-        return self.update_instance(instance_id, status=InstanceStatus.STOPPED)
+        from datetime import datetime
+        return self.update_instance(instance_id, status=InstanceStatus.STOPPED, stopped_at=datetime.now())
     
     def error_instance(self, instance_id: str, error_message: str) -> bool:
         """Mark instance as error state."""
