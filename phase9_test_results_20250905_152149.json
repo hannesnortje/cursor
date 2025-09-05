@@ -1,0 +1,221 @@
+{
+  "test_suite": "Phase 9 Comprehensive Test",
+  "start_time": "2025-09-05T15:21:47.407081",
+  "end_time": "2025-09-05T15:21:49.078943",
+  "duration_seconds": 1.671865,
+  "results": {
+    "phase9_1": {
+      "tests": [
+        {
+          "test_name": "Qdrant Status Check",
+          "success": true,
+          "message": "Qdrant status: False",
+          "timestamp": "2025-09-05T15:21:47.566385",
+          "details": {}
+        },
+        {
+          "test_name": "Create Project Database",
+          "success": true,
+          "message": "Created project: Project database created successfully: project_test-project-1_test_project_1",
+          "timestamp": "2025-09-05T15:21:47.774870",
+          "details": {}
+        },
+        {
+          "test_name": "List Project Databases",
+          "success": true,
+          "message": "Found 1 project databases",
+          "timestamp": "2025-09-05T15:21:47.775143",
+          "details": {}
+        },
+        {
+          "test_name": "Switch Project Database",
+          "success": true,
+          "message": "Switched to project: Switched to project database: project_test-project-1_test_project_1",
+          "timestamp": "2025-09-05T15:21:47.775338",
+          "details": {}
+        },
+        {
+          "test_name": "Initialize Predetermined Knowledge",
+          "success": false,
+          "message": "Error: Phase9MCPTools.initialize_predetermined_knowledge() takes from 1 to 2 positional arguments but 3 were given",
+          "timestamp": "2025-09-05T15:21:47.775360",
+          "details": {}
+        },
+        {
+          "test_name": "Search Project Knowledge",
+          "success": true,
+          "message": "Found 0 knowledge results",
+          "timestamp": "2025-09-05T15:21:47.783712",
+          "details": {}
+        },
+        {
+          "test_name": "Get Collection Stats",
+          "success": true,
+          "message": "Collection stats: Collection statistics retrieved successfully",
+          "timestamp": "2025-09-05T15:21:47.792539",
+          "details": {}
+        }
+      ],
+      "passed": 6,
+      "failed": 1
+    },
+    "phase9_2": {
+      "tests": [
+        {
+          "test_name": "Get Available Roles",
+          "success": true,
+          "message": "Found 5 roles: coordinator, frontend_developer, backend_developer, testing_specialist, documentation_specialist",
+          "timestamp": "2025-09-05T15:21:47.792905",
+          "details": {}
+        },
+        {
+          "test_name": "Get Available Workflows",
+          "success": true,
+          "message": "Found 4 workflows: sprint_planning, code_review, architecture_design, bug_triage",
+          "timestamp": "2025-09-05T15:21:47.793084",
+          "details": {}
+        },
+        {
+          "test_name": "Create AutoGen Agent",
+          "success": true,
+          "message": "Created agent: Enhanced AutoGen agent 'test-coordinator' created with role 'coordinator'",
+          "timestamp": "2025-09-05T15:21:47.867067",
+          "details": {}
+        },
+        {
+          "test_name": "Create Second Agent",
+          "success": true,
+          "message": "Created second agent: Enhanced AutoGen agent 'test-developer' created with role 'frontend_developer'",
+          "timestamp": "2025-09-05T15:21:47.940985",
+          "details": {}
+        },
+        {
+          "test_name": "List AutoGen Agents",
+          "success": true,
+          "message": "Found 2 agents",
+          "timestamp": "2025-09-05T15:21:47.941246",
+          "details": {}
+        },
+        {
+          "test_name": "Create Group Chat",
+          "success": true,
+          "message": "Created group chat: Enhanced AutoGen group chat 'test-chat' created with 2 agents",
+          "timestamp": "2025-09-05T15:21:47.941570",
+          "details": {}
+        },
+        {
+          "test_name": "Start AutoGen Workflow",
+          "success": true,
+          "message": "Started workflow: Unknown",
+          "timestamp": "2025-09-05T15:21:48.374711",
+          "details": {}
+        },
+        {
+          "test_name": "Start Conversation",
+          "success": true,
+          "message": "Started conversation: Unknown",
+          "timestamp": "2025-09-05T15:21:48.374939",
+          "details": {}
+        }
+      ],
+      "passed": 8,
+      "failed": 0
+    },
+    "phase9_3": {
+      "tests": [
+        {
+          "test_name": "Start Advanced Communication",
+          "success": true,
+          "message": "Started system: Advanced communication system started successfully",
+          "timestamp": "2025-09-05T15:21:48.375314",
+          "details": {}
+        },
+        {
+          "test_name": "Send Advanced Message",
+          "success": true,
+          "message": "Sent message af6b2cf7-d66b-44b4-8a82-b69bc00721ef with compression",
+          "timestamp": "2025-09-05T15:21:48.375663",
+          "details": {}
+        },
+        {
+          "test_name": "Send Multiple Messages",
+          "success": true,
+          "message": "Sent 3/3 messages successfully",
+          "timestamp": "2025-09-05T15:21:48.376525",
+          "details": {}
+        },
+        {
+          "test_name": "Get Communication Analytics",
+          "success": true,
+          "message": "Health score: 50.0, Analytics retrieved",
+          "timestamp": "2025-09-05T15:21:48.376859",
+          "details": {}
+        },
+        {
+          "test_name": "Get Queue Status",
+          "success": true,
+          "message": "Queue status: 4 messages queued",
+          "timestamp": "2025-09-05T15:21:48.377133",
+          "details": {}
+        },
+        {
+          "test_name": "Enable Cross-Project Communication",
+          "success": true,
+          "message": "Enabled communication: Enabled cross-project communication between test-project-1 and test-project-2",
+          "timestamp": "2025-09-05T15:21:48.377404",
+          "details": {}
+        },
+        {
+          "test_name": "Share Knowledge Between Projects",
+          "success": true,
+          "message": "Shared knowledge: Knowledge shared successfully from test-project-1 to test-project-2",
+          "timestamp": "2025-09-05T15:21:48.377731",
+          "details": {}
+        },
+        {
+          "test_name": "Get Compression Stats",
+          "success": true,
+          "message": "Compression stats retrieved: 2 algorithms",
+          "timestamp": "2025-09-05T15:21:48.377930",
+          "details": {}
+        },
+        {
+          "test_name": "Get Communication Health",
+          "success": true,
+          "message": "Health: 50.0 (Degraded)",
+          "timestamp": "2025-09-05T15:21:48.378228",
+          "details": {}
+        }
+      ],
+      "passed": 9,
+      "failed": 0
+    },
+    "integration": {
+      "tests": [
+        {
+          "test_name": "Project + Knowledge + Agents",
+          "success": false,
+          "message": "Error: Phase9MCPTools.initialize_predetermined_knowledge() takes from 1 to 2 positional arguments but 3 were given",
+          "timestamp": "2025-09-05T15:21:48.606953",
+          "details": {}
+        },
+        {
+          "test_name": "Cross-Project Knowledge Sharing",
+          "success": true,
+          "message": "Successfully shared knowledge between projects",
+          "timestamp": "2025-09-05T15:21:48.818805",
+          "details": {}
+        },
+        {
+          "test_name": "End-to-End Workflow",
+          "success": true,
+          "message": "Successfully executed complete workflow with all components",
+          "timestamp": "2025-09-05T15:21:49.078229",
+          "details": {}
+        }
+      ],
+      "passed": 2,
+      "failed": 1
+    }
+  }
+}

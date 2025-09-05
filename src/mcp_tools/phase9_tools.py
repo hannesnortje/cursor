@@ -434,10 +434,10 @@ def get_project_collection_stats(project_id: str) -> Dict[str, Any]:
     tools = get_phase9_tools()
     return asyncio.run(tools.get_project_collection_stats(project_id))
 
-def initialize_predetermined_knowledge(project_id: str, knowledge_types: List[str] = None) -> Dict[str, Any]:
+def initialize_predetermined_knowledge(project_id: str = None) -> Dict[str, Any]:
     """Initialize predetermined knowledge base for a project (synchronous wrapper)."""
     tools = get_phase9_tools()
-    return asyncio.run(tools.initialize_predetermined_knowledge(project_id, knowledge_types))
+    return asyncio.run(tools.initialize_predetermined_knowledge(project_id))
 
 def search_project_knowledge(project_id: str, query: str, collection: str = "knowledge", limit: int = 10) -> Dict[str, Any]:
     """Search knowledge in a project database (synchronous wrapper)."""
