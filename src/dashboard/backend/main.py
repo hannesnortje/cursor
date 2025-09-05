@@ -56,8 +56,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize MCP integration service (will be set up in startup event)
-mcp_service = None
+# Import shared services
 
 # Mount static files for frontend
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
@@ -259,10 +258,6 @@ async def rollback_to_version(version: str):
         logger.error(f"Failed to rollback to version {version}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to rollback: {str(e)}")
 
-@app.get("/api/health")
-async def get_health():
-    """Simple health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 @app.get("/api/lit/health")
 async def get_lit_health():
