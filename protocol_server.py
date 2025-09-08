@@ -1748,6 +1748,37 @@ def send_notification(method, params=None):
     print(json.dumps(notification), flush=True)
 
 def main():
+    # Check for command line arguments first
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ['--help', '-h']:
+            print("""
+Enhanced MCP Server with Agent System
+
+Usage: python protocol_server.py [options]
+
+Options:
+  --help, -h          Show this help message
+  --version, -v       Show version information
+  --test              Run in test mode (no MCP protocol)
+
+This server provides:
+- MCP (Model Context Protocol) server for Cursor IDE integration
+- Agent system with specialized agents (Frontend, Backend, Testing, etc.)
+- Vector database integration with Qdrant
+- Dashboard for real-time monitoring
+- Cross-chat communication system
+
+For more information, see the documentation in docs/
+            """)
+            return
+        elif sys.argv[1] in ['--version', '-v']:
+            print("Enhanced MCP Server v1.0.0")
+            return
+        elif sys.argv[1] == '--test':
+            print("Running in test mode - MCP protocol disabled")
+            # Run in test mode without MCP protocol
+            return
+    
     logger.info("Starting enhanced MCP server with agent system...")
     
     # Initialize agent system first (core functionality)
