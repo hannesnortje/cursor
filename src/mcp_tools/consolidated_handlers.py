@@ -3,6 +3,7 @@
 from typing import Dict, Any, List
 from .handlers import (
     basic_tools,
+    system_tools,
     communication_tools,
     agile_tools,
     project_generation_tools,
@@ -22,6 +23,9 @@ def get_all_mcp_tools() -> List[Dict[str, Any]]:
     
     # Add basic tools
     all_tools.extend(basic_tools.get_basic_tools())
+    
+    # Add system tools
+    all_tools.extend(system_tools.get_system_tools())
     
     # Add communication tools
     all_tools.extend(communication_tools.get_communication_tools())
@@ -61,6 +65,10 @@ def handle_mcp_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, 
     
     # Try basic tools first
     if basic_tools.handle_basic_tool(tool_name, arguments, request_id, send_response):
+        return True
+    
+    # Try system tools
+    if system_tools.handle_system_tool(tool_name, arguments, request_id, send_response):
         return True
     
     # Try communication tools
