@@ -139,10 +139,11 @@ class AgentSystem:
                             import time
                             current_time = time.time()
                             if hasattr(instance, 'started_at') and instance.started_at:
-                                started_dt = datetime.fromisoformat(instance.started_at)
-                                started_time = started_dt.timestamp()
-                                if current_time - started_time > 300:  # 5 minutes
-                                    should_remove = True
+                                if isinstance(instance.started_at, str):
+                                    started_dt = datetime.fromisoformat(instance.started_at)
+                                    started_time = started_dt.timestamp()
+                                    if current_time - started_time > 300:  # 5 minutes
+                                        should_remove = True
                                     logger.info(f"🧹 Found old running instance: {instance.instance_id}")
                     except (OSError, ProcessLookupError) as e:
                         should_remove = True
@@ -3818,6 +3819,8 @@ def cleanup_on_exit():
     logger.info("🧹 Cleaning up MCP server resources...")
     try:
         import subprocess
+        import time
+        from datetime import datetime
         
         # Only cleanup dashboard for current instance
         if current_instance_id:
@@ -3869,8 +3872,6 @@ def cleanup_on_exit():
                     logger.info(f"✅ Instance {current_instance_id} marked as stopped in registry")
                     
                     # Clean up old instances (more aggressive cleanup on exit)
-                    import time
-                    from datetime import datetime
                     current_time = time.time()
                     old_instances = []
                     
@@ -3879,10 +3880,11 @@ def cleanup_on_exit():
                         
                         # Remove stopped instances older than 5 minutes
                         if instance.status.value == "stopped" and instance.stopped_at:
-                            stopped_dt = datetime.fromisoformat(instance.stopped_at)
-                            stopped_time = stopped_dt.timestamp()
-                            if current_time - stopped_time > 300:  # 5 minutes
-                                should_remove = True
+                            if isinstance(instance.stopped_at, str):
+                                stopped_dt = datetime.fromisoformat(instance.stopped_at)
+                                stopped_time = stopped_dt.timestamp()
+                                if current_time - stopped_time > 300:  # 5 minutes
+                                    should_remove = True
                                 logger.info(f"🧹 Found old stopped instance: {instance.instance_id}")
                         
                         # Remove starting instances with no process_id (orphaned)
