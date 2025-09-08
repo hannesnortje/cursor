@@ -1,0 +1,51 @@
+{
+  "test_date": "2025-09-08T15:33:06.660626",
+  "overall_status": "EXCELLENT",
+  "success_rate": 100.0,
+  "results": {
+    "basic_functionality": {
+      "dashboard_loads": true,
+      "html_content": true,
+      "load_time": 0.003665924072265625,
+      "static_files": true
+    },
+    "api_endpoints": {
+      "/api/agents/status": {
+        "status_code": 200,
+        "accessible": true,
+        "response_time": 0.051784
+      },
+      "/api/system/health": {
+        "status_code": 200,
+        "accessible": true,
+        "response_time": 1.036482
+      },
+      "/api/performance/metrics": {
+        "status_code": 200,
+        "accessible": true,
+        "response_time": 1.03547
+      },
+      "/docs": {
+        "status_code": 200,
+        "accessible": true,
+        "response_time": 0.001573
+      }
+    },
+    "performance": {
+      "load_time": 0.002249002456665039,
+      "api_response_times": {
+        "/api/agents/status": 0.03498721122741699,
+        "/api/system/health": 1.0372047424316406,
+        "/api/performance/metrics": 1.0361106395721436
+      },
+      "concurrent_requests": true
+    },
+    "user_experience": {
+      "responsive_design": true,
+      "error_handling": true,
+      "navigation": true
+    },
+    "overall_status": "EXCELLENT",
+    "success_rate": 100.0
+  }
+}
