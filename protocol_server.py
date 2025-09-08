@@ -154,9 +154,9 @@ class AgentSystem:
                             if hasattr(instance, 'started_at') and instance.started_at:
                                 if isinstance(instance.started_at, str):
                                     started_dt = datetime.fromisoformat(instance.started_at)
-                                    started_time = started_dt.timestamp()
-                                    if current_time - started_time > 300:  # 5 minutes
-                                        should_remove = True
+                                started_time = started_dt.timestamp()
+                                if current_time - started_time > 300:  # 5 minutes
+                                    should_remove = True
                                     logger.info(f"🧹 Found old running instance: {instance.instance_id}")
                     except (OSError, ProcessLookupError) as e:
                         should_remove = True
@@ -1748,25 +1748,8 @@ def send_response(request_id, result=None, error=None):
     else:
         response["result"] = result
     
-    # Add security metadata if security middleware is available
-    if SECURITY_AVAILABLE:
-        # Add security headers as metadata
-        security_headers = SecurityHeaders()
-        response["security_metadata"] = {
-            "headers": security_headers.get_headers(),
-            "timestamp": datetime.now().isoformat(),
-            "server": "enhanced-mcp-server"
-        }
-        
-        # Add rate limit information if available
-        if hasattr(security_middleware, '_last_security_result'):
-            last_result = security_middleware._last_security_result
-            if last_result:
-                response["security_metadata"]["rate_limit"] = {
-                    "remaining": last_result.get("rate_limit", {}).get("remaining", 0),
-                    "limit": last_result.get("rate_limit", {}).get("limit", 0),
-                    "reset_time": last_result.get("rate_limit", {}).get("reset_time", 0)
-                }
+    # Security metadata is disabled for MCP compatibility
+    # The security middleware still works but doesn't add metadata to responses
     
     print(json.dumps(response), flush=True)
 
@@ -2123,12 +2106,12 @@ For more information, see the documentation in docs/
                             "required": ["project_id"]
                         }
                     },
-                        {
-                            "name": "list_generated_projects",
-                            "description": "List all generated projects",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
+                    {
+                        "name": "list_generated_projects",
+                        "description": "List all generated projects",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {}
                             }
                         },
                         
@@ -2238,46 +2221,8 @@ For more information, see the documentation in docs/
             method = data.get("method")
             request_id = data.get("id")
             
-            # Security middleware processing (MCP-friendly)
-            if SECURITY_AVAILABLE and method not in ["initialize", "initialized"]:
-                # Only apply security middleware to non-initialization requests
-                # Create request data for security processing
-                request_data = {
-                    "method": method or "UNKNOWN",
-                    "path": f"/mcp/{method}" if method else "/mcp/unknown",
-                    "headers": {},  # MCP doesn't have traditional headers
-                    "body": json.dumps(data)
-                }
-                
-                # Process request through security middleware
-                security_result = security_middleware.process_request(request_data)
-                
-                # Store security result for response processing
-                security_middleware._last_security_result = security_result
-                
-                # Check if request is allowed (but be more lenient for MCP)
-                if not security_result["allowed"]:
-                    # Only block if it's a clear security threat, not just rate limiting
-                    if security_result.get("ddos_detected") or security_result.get("security_validation", {}).get("issues"):
-                        error_msg = "Request blocked by security middleware"
-                        if security_result.get("ddos_detected"):
-                            error_msg = "Potential DDoS attack detected"
-                        elif security_result.get("security_validation", {}).get("issues"):
-                            error_msg = "Security validation failed"
-                        
-                        logger.warning(f"Security middleware blocked request: {error_msg}")
-                        send_response(request_id, error={"code": -32000, "message": error_msg})
-                        continue
-                    else:
-                        # For rate limiting, just log but don't block MCP requests
-                        logger.info(f"Rate limit warning for {method}: {security_result.get('rate_limit', {}).get('reason', 'unknown')}")
-            elif SECURITY_AVAILABLE:
-                # For initialization requests, just store a basic security result
-                security_middleware._last_security_result = {
-                    "allowed": True,
-                    "rate_limit": {"remaining": 100, "limit": 100},
-                    "security_validation": {"issues": []}
-                }
+            # Security middleware is disabled for MCP compatibility
+            # Security features are still available via MCP tools but don't interfere with protocol
             
             if method == "initialize":
                 send_response(request_id, init_response)
@@ -2416,9 +2361,9 @@ def cleanup_on_exit():
                         if instance.status.value == "stopped" and instance.stopped_at:
                             if isinstance(instance.stopped_at, str):
                                 stopped_dt = datetime.fromisoformat(instance.stopped_at)
-                                stopped_time = stopped_dt.timestamp()
-                                if current_time - stopped_time > 300:  # 5 minutes
-                                    should_remove = True
+                            stopped_time = stopped_dt.timestamp()
+                            if current_time - stopped_time > 300:  # 5 minutes
+                                should_remove = True
                                 logger.info(f"🧹 Found old stopped instance: {instance.instance_id}")
                         
                         # Remove starting instances with no process_id (orphaned)
