@@ -1,313 +1,359 @@
 #!/usr/bin/env python3
 """
-Cross-Chat Coordinator for AI Agent System.
-Manages communication across multiple chat sessions with real-time synchronization.
+Cross-Chat Service for AI Agent System.
+Integrates all communication components for seamless cross-chat functionality.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from .message_router import MessageRouter, ChatSession
-from .session_manager import SessionManager
+from .cross_chat_coordinator import CrossChatCoordinator
+from .events import CrossChatEvent
 from .websocket_server import WebSocketServer
-from .real_time_handler import RealTimeMessageHandler
-from .events import CrossChatEvent, CrossChatMessage, WebSocketMessage
+from .message_router import MessageRouter
+from .session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
 
-class CrossChatCoordinator:
-    """Coordinates communication across multiple chat sessions."""
+class CrossChatService:
+    """Main service for cross-chat communication functionality."""
     
-    def __init__(self, websocket_server: WebSocketServer, 
-                 message_router: MessageRouter, 
-                 session_manager: SessionManager,
-                 real_time_handler: RealTimeMessageHandler):
-        self.websocket_server = websocket_server
-        self.message_router = message_router
-        self.session_manager = session_manager
-        self.real_time_handler = real_time_handler
+    def __init__(self, host: str = "localhost", port: int = 4000):
+        self.host = host
+        self.port = port
         
-        # Cross-chat state
-        self.active_chats: Dict[str, Dict[str, Any]] = {}
-        self.chat_subscriptions: Dict[str, Set[str]] = {}  # chat_id -> set of subscribed_agents
-        self.broadcast_history: List[CrossChatEvent] = []
-        self.max_history_size = 1000
+        # Initialize components
+        self.websocket_server = WebSocketServer(host=host, port=port)
+        self.message_router = MessageRouter()
+        self.session_manager = SessionManager()
         
-        # Event handlers
-        self.event_handlers: Dict[str, callable] = {}
-        self._register_event_handlers()
+        # Initialize cross-chat coordinator
+        self.coordinator = CrossChatCoordinator(
+            websocket_server=self.websocket_server,
+            message_router=self.message_router,
+            session_manager=self.session_manager
+        )
         
-        logger.info("Cross-chat coordinator initialized")
+        # Service state
+        self.is_running = False
+        self.start_time = None
+        
+        logger.info(f"Cross-chat service initialized on {host}:{port}")
     
-    def _register_event_handlers(self) -> None:
-        """Register handlers for different event types."""
-        self.event_handlers.update({
-            "message": self._handle_chat_message,
-            "project_update": self._handle_project_update,
-            "agent_status": self._handle_agent_status,
-            "sprint_update": self._handle_sprint_update,
-            "coordination": self._handle_coordination_event,
-            "user_action": self._handle_user_action
-        })
-    
-    def register_chat_session(self, chat_id: str, chat_type: str, 
-                            participants: List[str], metadata: Optional[Dict[str, Any]] = None) -> bool:
-        """Register a new chat session for cross-chat communication."""
+    def start_service(self) -> Dict[str, Any]:
+        """Start the cross-chat service."""
         try:
-            # Create session in session manager
-            session = self.session_manager.create_session(chat_id, chat_type, participants, metadata)
+            if self.is_running:
+                return {
+                    "success": False,
+                    "error": "Service is already running",
+                    "timestamp": datetime.now().isoformat()
+                }
             
-            # Register in cross-chat system
-            self.active_chats[chat_id] = {
-                "session": session,
-                "type": chat_type,
-                "participants": participants,
-                "created_at": datetime.now().isoformat(),
-                "last_activity": datetime.now().isoformat(),
-                "message_count": 0,
-                "subscribed_agents": set(),
-                "metadata": metadata or {}
-            }
+            # Start WebSocket server (this would be async in real implementation)
+            # For now, we'll simulate the start
+            self.is_running = True
+            self.start_time = datetime.now()
             
-            # Initialize chat subscriptions
-            self.chat_subscriptions[chat_id] = set()
+            logger.info("Cross-chat service started successfully")
             
-            logger.info(f"Registered chat session: {chat_id} ({chat_type})")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to register chat session {chat_id}: {e}")
-            return False
-    
-    def unregister_chat_session(self, chat_id: str) -> bool:
-        """Unregister a chat session from cross-chat communication."""
-        try:
-            if chat_id in self.active_chats:
-                # Close session in session manager
-                self.session_manager.close_session(chat_id)
-                
-                # Remove from cross-chat system
-                del self.active_chats[chat_id]
-                if chat_id in self.chat_subscriptions:
-                    del self.chat_subscriptions[chat_id]
-                
-                logger.info(f"Unregistered chat session: {chat_id}")
-                return True
-            return False
-            
-        except Exception as e:
-            logger.error(f"Failed to unregister chat session {chat_id}: {e}")
-            return False
-    
-    def subscribe_agent_to_chat(self, agent_id: str, chat_id: str) -> bool:
-        """Subscribe an agent to a specific chat session."""
-        try:
-            if chat_id in self.active_chats:
-                self.chat_subscriptions[chat_id].add(agent_id)
-                self.message_router.subscribe_agent_to_chat(agent_id, chat_id)
-                
-                logger.info(f"Agent {agent_id} subscribed to chat {chat_id}")
-                return True
-            return False
-            
-        except Exception as e:
-            logger.error(f"Failed to subscribe agent {agent_id} to chat {chat_id}: {e}")
-            return False
-    
-    def unsubscribe_agent_from_chat(self, agent_id: str, chat_id: str) -> bool:
-        """Unsubscribe an agent from a specific chat session."""
-        try:
-            if chat_id in self.chat_subscriptions:
-                self.chat_subscriptions[chat_id].discard(agent_id)
-                self.message_router.unsubscribe_agent_from_chat(agent_id, chat_id)
-                
-                logger.info(f"Agent {agent_id} unsubscribed from chat {chat_id}")
-                return True
-            return False
-            
-        except Exception as e:
-            logger.error(f"Failed to unsubscribe agent {agent_id} from chat {chat_id}: {e}")
-            return False
-    
-    async def broadcast_event(self, event: CrossChatEvent) -> Dict[str, Any]:
-        """Broadcast an event across multiple chat sessions."""
-        try:
-            # Add to broadcast history
-            self.broadcast_history.append(event)
-            if len(self.broadcast_history) > self.max_history_size:
-                self.broadcast_history.pop(0)
-            
-            # Determine target chats
-            if "all" in event.target_chats:
-                target_chats = list(self.active_chats.keys())
-            else:
-                target_chats = [chat_id for chat_id in event.target_chats 
-                              if chat_id in self.active_chats]
-            
-            # Create cross-chat message
-            cross_chat_msg = CrossChatMessage(
-                message_id=event.event_id,
-                sender=event.source_agent,
-                sender_type="agent",
-                content=event.content,
-                message_type=event.event_type,
-                target_chats=target_chats,
-                timestamp=event.timestamp,
-                priority=event.priority,
-                metadata=event.metadata
-            )
-            
-            # Route message through message router
-            routing_result = self.message_router.route_message(cross_chat_msg)
-            
-            # Broadcast via WebSocket if target chats have active connections
-            websocket_broadcast_count = 0
-            for chat_id in target_chats:
-                if chat_id in self.active_chats:
-                    # Update chat activity
-                    self.active_chats[chat_id]["last_activity"] = datetime.now().isoformat()
-                    self.active_chats[chat_id]["message_count"] += 1
-                    
-                    # Broadcast via WebSocket
-                    websocket_msg = WebSocketMessage(
-                        message_id=event.event_id,
-                        sender=event.source_agent,
-                        recipient=chat_id,
-                        message_type="cross_chat_event",
-                        content=event.to_dict(),
-                        timestamp=event.timestamp,
-                        session_id=chat_id
-                    )
-                    
-                    # This would be async in real implementation
-                    # For now, we'll simulate the broadcast
-                    websocket_broadcast_count += 1
-            
-            # Store message in real-time handler for cross-chat visibility
-            try:
-                await self.real_time_handler.store_cross_chat_message(event)
-                logger.info(f"Cross-chat message stored for real-time visibility: {event.event_id}")
-            except Exception as e:
-                logger.error(f"Failed to store cross-chat message: {e}")
-            
-            # Handle event with appropriate handler
-            if event.event_type in self.event_handlers:
-                try:
-                    self.event_handlers[event.event_type](event)
-                except Exception as e:
-                    logger.error(f"Event handler error for {event.event_type}: {e}")
-            
-            result = {
+            return {
                 "success": True,
-                "event_id": event.event_id,
-                "target_chats": target_chats,
-                "routed_messages": routing_result.get("routed_count", 0),
-                "websocket_broadcasts": websocket_broadcast_count,
-                "real_time_stored": True,
+                "message": "Cross-chat service started successfully",
+                "websocket_port": self.port,
+                "start_time": self.start_time.isoformat(),
                 "timestamp": datetime.now().isoformat()
             }
             
-            logger.info(f"Cross-chat event {event.event_id} broadcast to {len(target_chats)} chats")
-            return result
-            
         except Exception as e:
-            logger.error(f"Failed to broadcast event: {e}")
+            logger.error(f"Failed to start cross-chat service: {e}")
+            self.is_running = False
             return {
                 "success": False,
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
     
-    def _handle_chat_message(self, event: CrossChatEvent) -> None:
-        """Handle chat message events."""
-        logger.info(f"Chat message from {event.source_agent} in {event.source_chat}")
-        # Could trigger notifications, update chat history, etc.
-    
-    def _handle_project_update(self, event: CrossChatEvent) -> None:
-        """Handle project update events."""
-        logger.info(f"Project update from {event.source_agent}: {event.content}")
-        # Could trigger project status updates, notifications, etc.
-    
-    def _handle_agent_status(self, event: CrossChatEvent) -> None:
-        """Handle agent status events."""
-        logger.info(f"Agent status from {event.source_agent}: {event.content}")
-        # Could update agent registry, trigger health checks, etc.
-    
-    def _handle_sprint_update(self, event: CrossChatEvent) -> None:
-        """Handle sprint update events."""
-        logger.info(f"Sprint update from {event.source_agent}: {event.content}")
-        # Could update sprint tracking, notify stakeholders, etc.
-    
-    def _handle_coordination_event(self, event: CrossChatEvent) -> None:
-        """Handle coordination events."""
-        logger.info(f"Coordination event from {event.source_agent}: {event.content}")
-        # Could trigger agent coordination, update workflows, etc.
-    
-    def _handle_user_action(self, event: CrossChatEvent) -> None:
-        """Handle user action events."""
-        logger.info(f"User action from {event.source_agent}: {event.content}")
-        # Could trigger agent responses, update user context, etc.
-    
-    def get_cross_chat_status(self) -> Dict[str, Any]:
-        """Get current cross-chat system status."""
-        active_chat_count = len(self.active_chats)
-        total_subscriptions = sum(len(subs) for subs in self.chat_subscriptions.values())
-        total_events = len(self.broadcast_history)
-        
-        return {
-            "active_chats": active_chat_count,
-            "total_subscriptions": total_subscriptions,
-            "total_events": total_events,
-            "chat_types": list(set(chat["type"] for chat in self.active_chats.values())),
-            "recent_events": [
-                {
-                    "event_id": event.event_id,
-                    "type": event.event_type,
-                    "source": event.source_agent,
-                    "timestamp": event.timestamp
+    def stop_service(self) -> Dict[str, Any]:
+        """Stop the cross-chat service."""
+        try:
+            if not self.is_running:
+                return {
+                    "success": False,
+                    "error": "Service is not running",
+                    "timestamp": datetime.now().isoformat()
                 }
-                for event in self.broadcast_history[-10:]  # Last 10 events
-            ],
-            "timestamp": datetime.now().isoformat()
-        }
-    
-    def search_cross_chat_events(self, query: str, event_type: Optional[str] = None, 
-                                limit: int = 50) -> List[CrossChatEvent]:
-        """Search cross-chat events by content or type."""
-        results = []
-        
-        for event in self.broadcast_history:
-            # Check event type filter
-            if event_type and event.event_type != event_type:
-                continue
             
-            # Check content match
-            content_str = str(event.content).lower()
-            if query.lower() in content_str:
-                results.append(event)
-        
-        # Sort by timestamp and limit
-        results.sort(key=lambda x: x.timestamp, reverse=True)
-        return results[:limit]
+            # Stop WebSocket server
+            # self.websocket_server.stop()  # Would be async in real implementation
+            
+            self.is_running = False
+            stop_time = datetime.now()
+            
+            uptime = (stop_time - self.start_time).total_seconds() if self.start_time else 0
+            
+            logger.info("Cross-chat service stopped")
+            
+            return {
+                "success": True,
+                "message": "Cross-chat service stopped successfully",
+                "uptime_seconds": uptime,
+                "stop_time": stop_time.isoformat(),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to stop cross-chat service: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
     
-    def get_chat_summary(self, chat_id: str) -> Optional[Dict[str, Any]]:
+    def create_chat_session(self, chat_id: str, chat_type: str, 
+                           participants: List[str], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create a new chat session for cross-chat communication."""
+        try:
+            success = self.coordinator.register_chat_session(chat_id, chat_type, participants, metadata)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Chat session {chat_id} created successfully",
+                    "chat_id": chat_id,
+                    "chat_type": chat_type,
+                    "participants": participants,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to create chat session {chat_id}",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error creating chat session {chat_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def close_chat_session(self, chat_id: str) -> Dict[str, Any]:
+        """Close a chat session."""
+        try:
+            success = self.coordinator.unregister_chat_session(chat_id)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Chat session {chat_id} closed successfully",
+                    "chat_id": chat_id,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to close chat session {chat_id}",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error closing chat session {chat_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def subscribe_agent(self, agent_id: str, chat_id: str) -> Dict[str, Any]:
+        """Subscribe an agent to a chat session."""
+        try:
+            success = self.coordinator.subscribe_agent_to_chat(agent_id, chat_id)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Agent {agent_id} subscribed to chat {chat_id}",
+                    "agent_id": agent_id,
+                    "chat_id": chat_id,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to subscribe agent {agent_id} to chat {chat_id}",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error subscribing agent {agent_id} to chat {chat_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def unsubscribe_agent(self, agent_id: str, chat_id: str) -> Dict[str, Any]:
+        """Unsubscribe an agent from a chat session."""
+        try:
+            success = self.coordinator.unsubscribe_agent_from_chat(agent_id, chat_id)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Agent {agent_id} unsubscribed from chat {chat_id}",
+                    "agent_id": agent_id,
+                    "chat_id": chat_id,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to unsubscribe agent {agent_id} from chat {chat_id}",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error unsubscribing agent {agent_id} from chat {chat_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def broadcast_message(self, source_chat: str, source_agent: str, 
+                         content: Any, target_chats: List[str], 
+                         message_type: str = "message", priority: int = 2) -> Dict[str, Any]:
+        """Broadcast a message across multiple chat sessions."""
+        try:
+            event = CrossChatEvent(
+                event_id=f"msg_{datetime.now().timestamp()}",
+                event_type=message_type,
+                source_chat=source_chat,
+                source_agent=source_agent,
+                content=content,
+                target_chats=target_chats,
+                priority=priority
+            )
+            
+            result = await self.coordinator.broadcast_event(event)
+            
+            if result["success"]:
+                return {
+                    "success": True,
+                    "message": "Message broadcast successfully",
+                    "event_id": event.event_id,
+                    "target_chats": result["target_chats"],
+                    "routed_messages": result["routed_messages"],
+                    "websocket_broadcasts": result["websocket_broadcasts"],
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result.get("error", "Unknown broadcast error"),
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error broadcasting message: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def get_service_status(self) -> Dict[str, Any]:
+        """Get comprehensive service status."""
+        try:
+            cross_chat_status = self.coordinator.get_cross_chat_status()
+            session_stats = self.session_manager.get_session_statistics()
+            
+            return {
+                "success": True,
+                "service_status": {
+                    "is_running": self.is_running,
+                    "start_time": self.start_time.isoformat() if self.start_time else None,
+                    "uptime_seconds": (datetime.now() - self.start_time).total_seconds() if self.start_time and self.is_running else 0
+                },
+                "websocket_server": {
+                    "host": self.host,
+                    "port": self.port,
+                    "status": "running" if self.is_running else "stopped"
+                },
+                "cross_chat": cross_chat_status,
+                "sessions": session_stats,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting service status: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def search_messages(self, query: str, event_type: Optional[str] = None, 
+                       limit: int = 50) -> Dict[str, Any]:
+        """Search cross-chat messages."""
+        try:
+            events = self.coordinator.search_cross_chat_events(query, event_type, limit)
+            
+            return {
+                "success": True,
+                "query": query,
+                "event_type": event_type,
+                "results_count": len(events),
+                "results": [
+                    {
+                        "event_id": event.event_id,
+                        "type": event.event_type,
+                        "source_chat": event.source_chat,
+                        "source_agent": event.source_agent,
+                        "content": event.content,
+                        "timestamp": event.timestamp,
+                        "priority": event.priority
+                    }
+                    for event in events
+                ],
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error searching messages: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    def get_chat_summary(self, chat_id: str) -> Dict[str, Any]:
         """Get summary of a specific chat session."""
-        if chat_id not in self.active_chats:
-            return None
-        
-        chat_data = self.active_chats[chat_id]
-        session = self.session_manager.get_session(chat_id)
-        
-        return {
-            "chat_id": chat_id,
-            "type": chat_data["type"],
-            "participants": chat_data["participants"],
-            "created_at": chat_data["created_at"],
-            "last_activity": chat_data["last_activity"],
-            "message_count": chat_data["message_count"],
-            "subscribed_agents": list(chat_data["subscribed_agents"]),
-            "session_status": session.is_active if session else False,
-            "metadata": chat_data["metadata"]
-        }
+        try:
+            summary = self.coordinator.get_chat_summary(chat_id)
+            
+            if summary:
+                return {
+                    "success": True,
+                    "chat_summary": summary,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Chat session {chat_id} not found",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting chat summary for {chat_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }

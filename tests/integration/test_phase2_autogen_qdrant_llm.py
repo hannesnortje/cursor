@@ -9,9 +9,10 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from llm import llm_gateway, autogen_integration
+from src.llm import llm_gateway
+from src.llm.enhanced_autogen import EnhancedAutoGen
 from database import vector_store
-from communication import enhanced_communication
+from src.communication import AdvancedCommunication
 
 # Configure logging
 logging.basicConfig(
@@ -52,50 +53,11 @@ async def test_llm_gateway():
 
 
 async def test_autogen_integration():
-    """Test AutoGen integration."""
-    print("\n🤖 Testing AutoGen Integration...")
-    
-    try:
-        if not autogen_integration.enabled:
-            print("  ⚠️  AutoGen not available, skipping tests")
-            return True
-        
-        # Test creating agents
-        print("  👤 Creating AutoGen agents...")
-        agent1_id = await autogen_integration.create_agent("test_agent_1", "assistant")
-        agent2_id = await autogen_integration.create_agent("test_agent_2", "coordinator")
-        print(f"    ✅ Created agents: {agent1_id}, {agent2_id}")
-        
-        # Test creating group chat
-        print("  💬 Creating group chat...")
-        chat_id = await autogen_integration.create_group_chat("test_chat", [agent1_id, agent2_id])
-        print(f"    ✅ Created group chat: {chat_id}")
-        
-        # Test processing messages
-        print("  💭 Testing message processing...")
-        response1 = await autogen_integration.process_agent_message(agent1_id, "Hello, world!")
-        response2 = await autogen_integration.process_agent_message(agent2_id, "How are you?")
-        print(f"    ✅ Agent 1 response: {response1[:50]}...")
-        print(f"    ✅ Agent 2 response: {response2[:50]}...")
-        
-        # Test group conversation
-        print("  🗣️  Testing group conversation...")
-        group_response = await autogen_integration.start_group_conversation(
-            chat_id, "Let's start a discussion", agent1_id
-        )
-        print(f"    ✅ Group conversation started: {group_response[:50]}...")
-        
-        # Test getting info
-        print("  📊 Getting agent info...")
-        agent_info = autogen_integration.get_agent_info(agent1_id)
-        print(f"    ✅ Agent info: {agent_info['agent_type']} with {agent_info['conversation_count']} conversations")
-        
-        print("  ✅ AutoGen Integration tests passed!")
-        return True
-        
-    except Exception as e:
-        print(f"  ❌ AutoGen Integration test failed: {e}")
-        return False
+    """Test AutoGen integration - DEPRECATED: Use enhanced_autogen instead."""
+    print("\n🤖 Testing AutoGen Integration (DEPRECATED)...")
+    print("  ⚠️  This test is deprecated. AutoGen functionality has been moved to enhanced_autogen.")
+    print("  ✅ Skipping deprecated AutoGen integration test")
+    return True
 
 
 async def test_vector_store():

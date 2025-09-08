@@ -20,7 +20,7 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from src.llm.llm_gateway import LLMGateway, LLMModel, LLMProvider, ModelType
-from src.llm.autogen_integration import AutoGenAgentWrapper, AutoGenConfig
+from src.llm.enhanced_autogen import EnhancedAutoGen, AgentRole
 
 
 class TestLLMGateway:

@@ -6,6 +6,7 @@ import uuid
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 import asyncio
+from dataclasses import dataclass
 
 # Try to import Qdrant with fallback
 try:
@@ -27,6 +28,34 @@ except ImportError:
     logger.warning("Qdrant client not available - using in-memory fallback")
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ConversationPoint:
+    """A conversation point stored in the vector database."""
+    id: str
+    session_id: str
+    agent_id: str
+    agent_type: str
+    message: str
+    context: str
+    timestamp: datetime
+    metadata: Dict[str, Any]
+    vector: Optional[List[float]] = None
+
+
+@dataclass
+class ProjectContext:
+    """Project context stored in the vector database."""
+    id: str
+    project_id: str
+    project_name: str
+    context_type: str  # planning, development, review, etc.
+    content: str
+    agent_id: str
+    timestamp: datetime
+    metadata: Dict[str, Any]
+    vector: Optional[List[float]] = None
 
 
 class InMemoryVectorStore:

@@ -327,7 +327,7 @@ class AgentSystem:
             # Store project context in vector database if available
             if self.vector_store:
                 try:
-                    from src.database.qdrant.vector_store import ProjectContext
+                    from src.database.enhanced_vector_store import ProjectContext
                     
                     project_context = ProjectContext(
                         id=f"proj_{project_id}",
@@ -722,7 +722,7 @@ What would you like to work on?""",
             # Store in vector database if available
             if self.vector_store:
                 try:
-                    from src.database.qdrant.vector_store import ConversationPoint
+                    from src.database.enhanced_vector_store import ConversationPoint
                     
                     conversation_point = ConversationPoint(
                         id=message_data["message_id"],
