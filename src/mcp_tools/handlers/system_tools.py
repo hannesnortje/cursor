@@ -292,6 +292,89 @@ def get_system_tools() -> List[Dict[str, Any]]:
                 "type": "object",
                 "properties": {}
             }
+        },
+        
+        # Network Security Tools
+        {
+            "name": "get_network_statistics",
+            "description": "Get network monitoring statistics and connection information",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "get_network_connections",
+            "description": "Get current network connections",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Maximum number of connections to return (default: 50)"}
+                }
+            }
+        },
+        {
+            "name": "get_security_events",
+            "description": "Get security events and alerts",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Maximum number of events to return (default: 50)"}
+                }
+            }
+        },
+        {
+            "name": "validate_ssl_config",
+            "description": "Validate SSL/TLS configuration",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "get_firewall_status",
+            "description": "Get firewall status and rules",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "block_ip",
+            "description": "Block an IP address",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "ip": {"type": "string", "description": "IP address to block"},
+                    "reason": {"type": "string", "description": "Reason for blocking (optional)"}
+                },
+                "required": ["ip"]
+            }
+        },
+        {
+            "name": "allow_ip",
+            "description": "Allow an IP address",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "ip": {"type": "string", "description": "IP address to allow"},
+                    "reason": {"type": "string", "description": "Reason for allowing (optional)"}
+                },
+                "required": ["ip"]
+            }
+        },
+        {
+            "name": "test_network_connectivity",
+            "description": "Test network connectivity to a host and port",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string", "description": "Host to test connectivity to"},
+                    "port": {"type": "integer", "description": "Port to test (default: 80)"},
+                    "timeout": {"type": "integer", "description": "Timeout in seconds (default: 5)"}
+                },
+                "required": ["host"]
+            }
         }
     ]
 
@@ -856,6 +939,286 @@ def handle_system_tool(tool_name: str, arguments: Dict[str, Any], request_id: st
                 })
         except Exception as e:
             send_response(request_id, error={"code": -32603, "message": f"Error validating security headers: {str(e)}"})
+        return True
+    
+    # Network Security Tools
+    elif tool_name == "get_network_statistics":
+        try:
+            # Import network monitor
+            try:
+                from src.security.network_security import network_monitor
+                
+                # Get network statistics
+                stats = network_monitor.get_network_statistics()
+                
+                result = {
+                    "network_statistics": stats,
+                    "network_monitoring_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Network statistics retrieved - {stats['total_connections']} connections, {len(stats['recent_events'])} recent events"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Network monitoring not available"}],
+                    "structuredContent": {"network_monitoring_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error getting network statistics: {str(e)}"})
+        return True
+    
+    elif tool_name == "get_network_connections":
+        try:
+            # Import network monitor
+            try:
+                from src.security.network_security import network_monitor
+                
+                limit = arguments.get("limit", 50)
+                connections = network_monitor.get_connections(limit)
+                
+                result = {
+                    "connections": connections,
+                    "connection_count": len(connections),
+                    "limit": limit,
+                    "network_monitoring_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Retrieved {len(connections)} network connections"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Network monitoring not available"}],
+                    "structuredContent": {"network_monitoring_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error getting network connections: {str(e)}"})
+        return True
+    
+    elif tool_name == "get_security_events":
+        try:
+            # Import network monitor
+            try:
+                from src.security.network_security import network_monitor
+                
+                limit = arguments.get("limit", 50)
+                events = network_monitor.get_security_events(limit)
+                
+                result = {
+                    "security_events": events,
+                    "event_count": len(events),
+                    "limit": limit,
+                    "network_monitoring_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Retrieved {len(events)} security events"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Network monitoring not available"}],
+                    "structuredContent": {"network_monitoring_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error getting security events: {str(e)}"})
+        return True
+    
+    elif tool_name == "validate_ssl_config":
+        try:
+            # Import SSL config
+            try:
+                from src.security.network_security import ssl_config
+                
+                validation_result = ssl_config.validate_ssl_config()
+                
+                result = {
+                    "ssl_validation": validation_result,
+                    "ssl_config_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"SSL configuration validation completed - {validation_result['contexts']} contexts, {validation_result['certificates']} certificates"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "SSL configuration not available"}],
+                    "structuredContent": {"ssl_config_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error validating SSL config: {str(e)}"})
+        return True
+    
+    elif tool_name == "get_firewall_status":
+        try:
+            # Import firewall manager
+            try:
+                from src.security.network_security import firewall_manager
+                
+                status = firewall_manager.get_firewall_status()
+                
+                result = {
+                    "firewall_status": status,
+                    "firewall_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Firewall status retrieved - {status['total_rules']} rules, {len(status['blocked_ips'])} blocked IPs"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Firewall management not available"}],
+                    "structuredContent": {"firewall_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error getting firewall status: {str(e)}"})
+        return True
+    
+    elif tool_name == "block_ip":
+        try:
+            # Import firewall manager
+            try:
+                from src.security.network_security import firewall_manager
+                
+                ip = arguments.get("ip")
+                reason = arguments.get("reason", "Manual block")
+                
+                if not ip:
+                    send_response(request_id, error={"code": -32602, "message": "ip is required"})
+                    return True
+                
+                success = firewall_manager.block_ip(ip, reason)
+                
+                result = {
+                    "blocked_ip": ip,
+                    "reason": reason,
+                    "success": success,
+                    "firewall_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"IP {ip} {'blocked' if success else 'block failed'} - {reason}"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Firewall management not available"}],
+                    "structuredContent": {"firewall_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error blocking IP: {str(e)}"})
+        return True
+    
+    elif tool_name == "allow_ip":
+        try:
+            # Import firewall manager
+            try:
+                from src.security.network_security import firewall_manager
+                
+                ip = arguments.get("ip")
+                reason = arguments.get("reason", "Manual allow")
+                
+                if not ip:
+                    send_response(request_id, error={"code": -32602, "message": "ip is required"})
+                    return True
+                
+                success = firewall_manager.allow_ip(ip, reason)
+                
+                result = {
+                    "allowed_ip": ip,
+                    "reason": reason,
+                    "success": success,
+                    "firewall_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"IP {ip} {'allowed' if success else 'allow failed'} - {reason}"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Firewall management not available"}],
+                    "structuredContent": {"firewall_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error allowing IP: {str(e)}"})
+        return True
+    
+    elif tool_name == "test_network_connectivity":
+        try:
+            import socket
+            import time
+            
+            host = arguments.get("host")
+            port = arguments.get("port", 80)
+            timeout = arguments.get("timeout", 5)
+            
+            if not host:
+                send_response(request_id, error={"code": -32602, "message": "host is required"})
+                return True
+            
+            # Test connectivity
+            start_time = time.time()
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(timeout)
+                result = sock.connect_ex((host, port))
+                sock.close()
+                
+                end_time = time.time()
+                response_time = (end_time - start_time) * 1000  # Convert to milliseconds
+                
+                if result == 0:
+                    send_response(request_id, {
+                        "content": [{"type": "text", "text": f"Successfully connected to {host}:{port}"}],
+                        "structuredContent": {
+                            "host": host,
+                            "port": port,
+                            "connected": True,
+                            "response_time_ms": round(response_time, 2),
+                            "timeout": timeout
+                        }
+                    })
+                else:
+                    send_response(request_id, {
+                        "content": [{"type": "text", "text": f"Failed to connect to {host}:{port}"}],
+                        "structuredContent": {
+                            "host": host,
+                            "port": port,
+                            "connected": False,
+                            "error_code": result,
+                            "timeout": timeout
+                        }
+                    })
+            except socket.timeout:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Connection to {host}:{port} timed out"}],
+                    "structuredContent": {
+                        "host": host,
+                        "port": port,
+                        "connected": False,
+                        "error": "timeout",
+                        "timeout": timeout
+                    }
+                })
+            except Exception as e:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Error connecting to {host}:{port}: {str(e)}"}],
+                    "structuredContent": {
+                        "host": host,
+                        "port": port,
+                        "connected": False,
+                        "error": str(e),
+                        "timeout": timeout
+                    }
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error testing connectivity: {str(e)}"})
         return True
     
     return False
