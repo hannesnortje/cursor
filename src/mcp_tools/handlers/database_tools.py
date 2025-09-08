@@ -1,10 +1,10 @@
-"""Phase 9.1: Project-Specific Qdrant Database MCP tools."""
+"""Database Management MCP tools for project-specific Qdrant databases."""
 
 from typing import Dict, Any, List
 
 
-def get_phase9_1_tools() -> List[Dict[str, Any]]:
-    """Get Phase 9.1 MCP tools definitions."""
+def get_database_tools() -> List[Dict[str, Any]]:
+    """Get Database Management MCP tools definitions."""
     return [
         {
             "name": "start_container",
@@ -95,8 +95,8 @@ def get_phase9_1_tools() -> List[Dict[str, Any]]:
     ]
 
 
-def handle_phase9_1_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, send_response) -> bool:
-    """Handle Phase 9.1 tool calls."""
+def handle_database_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, send_response) -> bool:
+    """Handle Database Management tool calls."""
     
     if tool_name == "start_container":
         try:

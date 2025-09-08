@@ -2,28 +2,16 @@
 
 from .basic_tools import get_basic_tools
 from .system_tools import get_system_tools
+from .database_tools import get_database_tools
+from .autogen_tools import get_autogen_tools
 from .communication_tools import get_communication_tools
-from .agile_tools import get_agile_tools
-from .project_generation_tools import get_project_generation_tools
-from .backend_tools import get_backend_tools
-from .llm_tools import get_llm_tools
-from .dashboard_tools import get_dashboard_tools
-from .phase9_1_tools import get_phase9_1_tools
-from .phase9_2_tools import get_phase9_2_tools
-from .phase9_3_tools import get_phase9_3_tools
-from .phase9_4_tools import get_phase9_4_tools
+from .knowledge_tools import get_knowledge_tools
 
 __all__ = [
     'get_basic_tools',
     'get_system_tools',
+    'get_database_tools',
+    'get_autogen_tools',
     'get_communication_tools',
-    'get_agile_tools', 
-    'get_project_generation_tools',
-    'get_backend_tools',
-    'get_llm_tools',
-    'get_dashboard_tools',
-    'get_phase9_1_tools',
-    'get_phase9_2_tools',
-    'get_phase9_3_tools',
-    'get_phase9_4_tools'
+    'get_knowledge_tools'
 ]

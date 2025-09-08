@@ -2,22 +2,18 @@
 
 from .handlers import (
     basic_tools,
+    system_tools,
+    database_tools,
+    autogen_tools,
     communication_tools,
-    agile_tools,
-    project_generation_tools,
-    backend_tools,
-    llm_tools,
-    dashboard_tools,
-    phase9_1_tools
+    knowledge_tools
 )
 
 __all__ = [
     'basic_tools',
-    'communication_tools', 
-    'agile_tools',
-    'project_generation_tools',
-    'backend_tools',
-    'llm_tools',
-    'dashboard_tools',
-    'phase9_1_tools'
+    'system_tools',
+    'database_tools',
+    'autogen_tools',
+    'communication_tools',
+    'knowledge_tools'
 ]

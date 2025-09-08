@@ -1,10 +1,10 @@
-"""Phase 9.2: Enhanced AutoGen Integration MCP tools."""
+"""Enhanced AutoGen Integration MCP tools for sophisticated agent conversations."""
 
 from typing import Dict, Any, List
 
 
-def get_phase9_2_tools() -> List[Dict[str, Any]]:
-    """Get Phase 9.2 MCP tools definitions."""
+def get_autogen_tools() -> List[Dict[str, Any]]:
+    """Get Enhanced AutoGen Integration MCP tools definitions."""
     return [
         {
             "name": "create_agent",
@@ -103,8 +103,8 @@ def get_phase9_2_tools() -> List[Dict[str, Any]]:
     ]
 
 
-def handle_phase9_2_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, send_response) -> bool:
-    """Handle Phase 9.2 tool calls."""
+def handle_autogen_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, send_response) -> bool:
+    """Handle Enhanced AutoGen Integration tool calls."""
     
     if tool_name == "create_agent":
         try:

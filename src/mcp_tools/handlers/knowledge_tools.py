@@ -1,10 +1,10 @@
-"""Phase 9.4: Knowledge Bases MCP tools."""
+"""Predetermined Knowledge Bases MCP tools for project initialization."""
 
 from typing import Dict, Any, List
 
 
-def get_phase9_4_tools() -> List[Dict[str, Any]]:
-    """Get Phase 9.4 MCP tools definitions."""
+def get_knowledge_tools() -> List[Dict[str, Any]]:
+    """Get Predetermined Knowledge Bases MCP tools definitions."""
     return [
         {
             "name": "get_domains",
@@ -96,8 +96,8 @@ def get_phase9_4_tools() -> List[Dict[str, Any]]:
     ]
 
 
-def handle_phase9_4_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, send_response) -> bool:
-    """Handle Phase 9.4 tool calls."""
+def handle_knowledge_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, send_response) -> bool:
+    """Handle Predetermined Knowledge Bases tool calls."""
     
     if tool_name == "get_domains":
         try:
