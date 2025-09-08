@@ -11,7 +11,8 @@ from .handlers import (
     dashboard_tools,
     phase9_1_tools,
     phase9_2_tools,
-    phase9_3_tools
+    phase9_3_tools,
+    phase9_4_tools
 )
 
 
@@ -48,6 +49,9 @@ def get_all_mcp_tools() -> List[Dict[str, Any]]:
     
     # Add Phase 9.3 tools
     all_tools.extend(phase9_3_tools.get_phase9_3_tools())
+    
+    # Add Phase 9.4 tools
+    all_tools.extend(phase9_4_tools.get_phase9_4_tools())
     
     return all_tools
 
@@ -93,6 +97,10 @@ def handle_mcp_tool(tool_name: str, arguments: Dict[str, Any], request_id: str, 
     
     # Try Phase 9.3 tools
     if phase9_3_tools.handle_phase9_3_tool(tool_name, arguments, request_id, send_response):
+        return True
+    
+    # Try Phase 9.4 tools
+    if phase9_4_tools.handle_phase9_4_tool(tool_name, arguments, request_id, send_response):
         return True
     
     # Tool not found

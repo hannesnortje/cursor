@@ -10,6 +10,7 @@ from .dashboard_tools import get_dashboard_tools
 from .phase9_1_tools import get_phase9_1_tools
 from .phase9_2_tools import get_phase9_2_tools
 from .phase9_3_tools import get_phase9_3_tools
+from .phase9_4_tools import get_phase9_4_tools
 
 __all__ = [
     'get_basic_tools',
@@ -21,5 +22,6 @@ __all__ = [
     'get_dashboard_tools',
     'get_phase9_1_tools',
     'get_phase9_2_tools',
-    'get_phase9_3_tools'
+    'get_phase9_3_tools',
+    'get_phase9_4_tools'
 ]
