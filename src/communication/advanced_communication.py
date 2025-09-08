@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Advanced Communication Features for Phase 7.3."""
+"""Advanced Communication Features for Phase 9.3 with fallback support."""
 
 import asyncio
 import json
@@ -50,343 +49,450 @@ class AdvancedMessage:
         """Check if message has expired."""
         if self.ttl is None:
             return False
-        return time.time() > self.timestamp + self.ttl
+        return time.time() - self.timestamp > self.ttl
     
-    def get_size(self) -> int:
-        """Get approximate message size."""
-        content_str = json.dumps(self.content)
-        return len(content_str.encode('utf-8'))
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert message to dictionary."""
+        return {
+            "id": self.id,
+            "content": self.content,
+            "sender": self.sender,
+            "recipients": self.recipients,
+            "message_type": self.message_type.value,
+            "priority": self.priority.value,
+            "timestamp": self.timestamp,
+            "ttl": self.ttl,
+            "compression": self.compression,
+            "encryption": self.encryption,
+            "metadata": self.metadata
+        }
+
 
 class MessageCompressor:
-    """Message compression utilities."""
-    
-    @staticmethod
-    def compress(data: bytes) -> bytes:
-        """Compress data using zlib."""
-        try:
-            return zlib.compress(data, level=6)
-        except Exception as e:
-            logger.error(f"Compression failed: {e}")
-            return data
-    
-    @staticmethod
-    def decompress(data: bytes) -> bytes:
-        """Decompress data using zlib."""
-        try:
-            return zlib.decompress(data)
-        except Exception as e:
-            logger.error(f"Decompression failed: {e}")
-            return data
-    
-    @staticmethod
-    def should_compress(data: bytes, threshold: int = 1024) -> bool:
-        """Determine if data should be compressed."""
-        return len(data) > threshold
-
-class PriorityQueue:
-    """Priority-based message queue."""
+    """Message compression with performance monitoring."""
     
     def __init__(self):
-        self.queues: Dict[MessagePriority, deque] = {
-            priority: deque() for priority in MessagePriority
-        }
-        self._lock = asyncio.Lock()
-    
-    async def put(self, message: AdvancedMessage):
-        """Put message in appropriate priority queue."""
-        async with self._lock:
-            self.queues[message.priority].append(message)
-    
-    async def get(self) -> Optional[AdvancedMessage]:
-        """Get highest priority message."""
-        async with self._lock:
-            # Check queues from highest to lowest priority
-            for priority in sorted(MessagePriority, reverse=True):
-                if self.queues[priority]:
-                    return self.queues[priority].popleft()
-        return None
-    
-    async def size(self) -> int:
-        """Get total queue size."""
-        async with self._lock:
-            return sum(len(queue) for queue in self.queues.values())
-    
-    async def get_queue_sizes(self) -> Dict[MessagePriority, int]:
-        """Get size of each priority queue."""
-        async with self._lock:
-            return {priority: len(queue) for priority, queue in self.queues.items()}
-
-class MessageRouter:
-    """Advanced message routing with filtering and analytics."""
-    
-    def __init__(self):
-        self.routes: Dict[str, List[Callable]] = defaultdict(list)
-        self.filters: Dict[str, List[Callable]] = defaultdict(list)
-        self.analytics: Dict[str, Dict[str, Any]] = defaultdict(dict)
-        self._lock = asyncio.Lock()
-    
-    def add_route(self, message_type: str, handler: Callable):
-        """Add a route handler for a message type."""
-        self.routes[message_type].append(handler)
-    
-    def add_filter(self, message_type: str, filter_func: Callable):
-        """Add a filter for a message type."""
-        self.filters[message_type].append(filter_func)
-    
-    async def route_message(self, message: AdvancedMessage) -> bool:
-        """Route a message through filters and handlers."""
-        message_type = message.message_type.value
-        
-        # Apply filters
-        if message_type in self.filters:
-            for filter_func in self.filters[message_type]:
-                try:
-                    if not await filter_func(message):
-                        logger.debug(f"Message {message.id} filtered out by {filter_func.__name__}")
-                        return False
-                except Exception as e:
-                    logger.error(f"Filter {filter_func.__name__} failed: {e}")
-                    return False
-        
-        # Route to handlers
-        if message_type in self.routes:
-            for handler in self.routes[message_type]:
-                try:
-                    await handler(message)
-                except Exception as e:
-                    logger.error(f"Handler {handler.__name__} failed: {e}")
-        
-        # Update analytics
-        await self._update_analytics(message)
-        return True
-    
-    async def _update_analytics(self, message: AdvancedMessage):
-        """Update message analytics."""
-        message_type = message.message_type.value
-        
-        async with self._lock:
-            if message_type not in self.analytics:
-                self.analytics[message_type] = {
-                    "count": 0,
-                    "total_size": 0,
-                    "priority_distribution": {p.value: 0 for p in MessagePriority},
-                    "sender_distribution": defaultdict(int),
-                    "avg_processing_time": 0.0
-                }
-            
-            analytics = self.analytics[message_type]
-            analytics["count"] += 1
-            analytics["total_size"] += message.get_size()
-            analytics["priority_distribution"][message.priority.value] += 1
-            analytics["sender_distribution"][message.sender] += 1
-    
-    def get_analytics(self, message_type: Optional[str] = None) -> Dict[str, Any]:
-        """Get message analytics."""
-        if message_type:
-            return self.analytics.get(message_type, {})
-        return dict(self.analytics)
-
-class MessageFilter:
-    """Built-in message filters."""
-    
-    @staticmethod
-    async def rate_limit_filter(max_messages_per_second: int = 100):
-        """Create a rate limiting filter."""
-        message_counts = defaultdict(int)
-        last_reset = time.time()
-        
-        async def filter_func(message: AdvancedMessage) -> bool:
-            nonlocal last_reset
-            current_time = time.time()
-            
-            # Reset counter every second
-            if current_time - last_reset >= 1.0:
-                message_counts.clear()
-                last_reset = current_time
-            
-            sender = message.sender
-            if message_counts[sender] >= max_messages_per_second:
-                logger.warning(f"Rate limit exceeded for {sender}")
-                return False
-            
-            message_counts[sender] += 1
-            return True
-        
-        return filter_func
-    
-    @staticmethod
-    async def size_filter(max_size: int = 1024 * 1024):  # 1MB
-        """Create a size-based filter."""
-        async def filter_func(message: AdvancedMessage) -> bool:
-            if message.get_size() > max_size:
-                logger.warning(f"Message {message.id} exceeds size limit")
-                return False
-            return True
-        
-        return filter_func
-    
-    @staticmethod
-    async def content_filter(forbidden_patterns: List[str] = None):
-        """Create a content-based filter."""
-        if forbidden_patterns is None:
-            forbidden_patterns = []
-        
-        async def filter_func(message: AdvancedMessage) -> bool:
-            content_str = json.dumps(message.content).lower()
-            for pattern in forbidden_patterns:
-                if pattern.lower() in content_str:
-                    logger.warning(f"Message {message.id} contains forbidden pattern: {pattern}")
-                    return False
-            return True
-        
-        return filter_func
-
-class AdvancedCommunicationSystem:
-    """Advanced communication system with all features."""
-    
-    def __init__(self):
-        self.priority_queue = PriorityQueue()
-        self.router = MessageRouter()
-        self.compressor = MessageCompressor()
-        self.message_history: deque = deque(maxlen=10000)
-        self._processing_task: Optional[asyncio.Task] = None
-        self._stats = {
-            "messages_sent": 0,
-            "messages_received": 0,
-            "messages_filtered": 0,
+        self.compression_stats = {
+            "total_compressed": 0,
+            "total_uncompressed": 0,
             "compression_ratio": 0.0,
-            "avg_processing_time": 0.0
+            "compression_time": 0.0,
+            "decompression_time": 0.0
         }
+        logger.info("Message compressor initialized")
     
-    async def start(self):
-        """Start the advanced communication system."""
-        if self._processing_task is None:
-            self._processing_task = asyncio.create_task(self._process_messages())
-            logger.info("Advanced communication system started")
-    
-    async def stop(self):
-        """Stop the advanced communication system."""
-        if self._processing_task:
-            self._processing_task.cancel()
-            self._processing_task = None
-            logger.info("Advanced communication system stopped")
-    
-    async def send_message(self, message: AdvancedMessage) -> bool:
-        """Send a message through the system."""
+    def compress_message(self, content: str, level: int = 6) -> Dict[str, Any]:
+        """Compress message content with performance monitoring."""
         try:
-            # Compress if beneficial
-            if message.compression and isinstance(message.content, str):
-                content_bytes = message.content.encode('utf-8')
-                if self.compressor.should_compress(content_bytes):
-                    compressed = self.compressor.compress(content_bytes)
-                    message.content = compressed
-                    message.metadata["compressed"] = True
-                    message.metadata["original_size"] = len(content_bytes)
-                    message.metadata["compressed_size"] = len(compressed)
+            start_time = time.time()
             
-            # Add to priority queue
-            await self.priority_queue.put(message)
+            # Convert to bytes if string
+            if isinstance(content, str):
+                content_bytes = content.encode('utf-8')
+            else:
+                content_bytes = str(content).encode('utf-8')
+            
+            # Compress
+            compressed = zlib.compress(content_bytes, level)
+            
+            compression_time = time.time() - start_time
+            
+            # Calculate compression ratio
+            original_size = len(content_bytes)
+            compressed_size = len(compressed)
+            compression_ratio = compressed_size / original_size if original_size > 0 else 0
             
             # Update stats
-            self._stats["messages_sent"] += 1
+            self.compression_stats["total_compressed"] += 1
+            self.compression_stats["compression_ratio"] = compression_ratio
+            self.compression_stats["compression_time"] += compression_time
             
-            logger.debug(f"Message {message.id} queued with priority {message.priority.value}")
-            return True
+            logger.info(f"Compressed message: {original_size} -> {compressed_size} bytes ({compression_ratio:.2%} ratio)")
+            
+            return {
+                "compressed": True,
+                "content": compressed,
+                "original_size": original_size,
+                "compressed_size": compressed_size,
+                "compression_ratio": compression_ratio,
+                "compression_time": compression_time
+            }
             
         except Exception as e:
-            logger.error(f"Failed to send message {message.id}: {e}")
-            return False
+            logger.error(f"Compression failed: {e}")
+            # Fallback to uncompressed
+            return {
+                "compressed": False,
+                "content": content,
+                "original_size": len(str(content)),
+                "compressed_size": len(str(content)),
+                "compression_ratio": 1.0,
+                "compression_time": 0.0,
+                "error": str(e)
+            }
     
-    async def _process_messages(self):
-        """Process messages from the priority queue."""
-        while True:
-            try:
-                message = await self.priority_queue.get()
-                if message is None:
-                    await asyncio.sleep(0.01)
-                    continue
-                
-                start_time = time.time()
-                
-                # Check if message has expired
-                if message.is_expired():
-                    logger.debug(f"Message {message.id} expired, skipping")
-                    self._stats["messages_filtered"] += 1
-                    continue
-                
-                # Route the message
-                success = await self.router.route_message(message)
-                
-                # Update processing time
-                processing_time = time.time() - start_time
-                self._update_processing_time(processing_time)
-                
-                # Store in history
-                self.message_history.append({
-                    "id": message.id,
-                    "timestamp": message.timestamp,
-                    "processing_time": processing_time,
-                    "success": success
-                })
-                
-                # Update stats
-                self._stats["messages_received"] += 1
-                if not success:
-                    self._stats["messages_filtered"] += 1
-                
-                # Update compression ratio
-                if message.metadata.get("compressed"):
-                    original_size = message.metadata.get("original_size", 0)
-                    compressed_size = message.metadata.get("compressed_size", 0)
-                    if original_size > 0:
-                        ratio = 1 - (compressed_size / original_size)
-                        self._update_compression_ratio(ratio)
-                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error processing message: {e}")
-                await asyncio.sleep(0.1)
+    def decompress_message(self, compressed_content: bytes) -> Dict[str, Any]:
+        """Decompress message content with performance monitoring."""
+        try:
+            start_time = time.time()
+            
+            # Decompress
+            decompressed = zlib.decompress(compressed_content)
+            content = decompressed.decode('utf-8')
+            
+            decompression_time = time.time() - start_time
+            
+            # Update stats
+            self.compression_stats["total_uncompressed"] += 1
+            self.compression_stats["decompression_time"] += decompression_time
+            
+            logger.info(f"Decompressed message: {len(compressed_content)} -> {len(content)} bytes")
+            
+            return {
+                "decompressed": True,
+                "content": content,
+                "decompression_time": decompression_time
+            }
+            
+        except Exception as e:
+            logger.error(f"Decompression failed: {e}")
+            return {
+                "decompressed": False,
+                "content": str(compressed_content),
+                "decompression_time": 0.0,
+                "error": str(e)
+            }
     
-    def _update_processing_time(self, processing_time: float):
-        """Update average processing time."""
-        current_avg = self._stats["avg_processing_time"]
-        count = self._stats["messages_received"]
-        
-        if count > 0:
-            new_avg = ((current_avg * (count - 1)) + processing_time) / count
-            self._stats["avg_processing_time"] = new_avg
-        else:
-            self._stats["avg_processing_time"] = processing_time
+    def get_compression_stats(self) -> Dict[str, Any]:
+        """Get compression statistics."""
+        return self.compression_stats.copy()
+
+
+class PriorityRouter:
+    """Priority-based message routing with fallback."""
     
-    def _update_compression_ratio(self, ratio: float):
-        """Update average compression ratio."""
-        current_avg = self._stats["compression_ratio"]
-        count = self._stats["messages_sent"]
-        
-        if count > 0:
-            new_avg = ((current_avg * (count - 1)) + ratio) / count
-            self._stats["compression_ratio"] = new_avg
-        else:
-            self._stats["compression_ratio"] = ratio
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get communication system statistics."""
-        return {
-            **self._stats,
-            "queue_size": asyncio.create_task(self.priority_queue.size()),
-            "queue_distribution": asyncio.create_task(self.priority_queue.get_queue_sizes()),
-            "router_analytics": self.router.get_analytics(),
-            "message_history_size": len(self.message_history)
+    def __init__(self):
+        self.message_queues = {
+            priority: deque() for priority in MessagePriority
         }
+        self.routing_stats = {
+            "total_routed": 0,
+            "priority_counts": {priority.name: 0 for priority in MessagePriority},
+            "routing_time": 0.0
+        }
+        logger.info("Priority router initialized")
     
-    def add_route(self, message_type: str, handler: Callable):
-        """Add a message route handler."""
-        self.router.add_route(message_type, handler)
+    def route_message(self, message: AdvancedMessage) -> Dict[str, Any]:
+        """Route message based on priority with performance monitoring."""
+        try:
+            start_time = time.time()
+            
+            # Add to appropriate priority queue
+            self.message_queues[message.priority].append(message)
+            
+            # Update stats
+            self.routing_stats["total_routed"] += 1
+            self.routing_stats["priority_counts"][message.priority.name] += 1
+            self.routing_stats["routing_time"] += time.time() - start_time
+            
+            logger.info(f"Routed message {message.id} with priority {message.priority.name}")
+            
+            return {
+                "routed": True,
+                "message_id": message.id,
+                "priority": message.priority.name,
+                "queue_size": len(self.message_queues[message.priority])
+            }
+            
+        except Exception as e:
+            logger.error(f"Routing failed: {e}")
+            return {
+                "routed": False,
+                "message_id": message.id,
+                "error": str(e)
+            }
     
-    def add_filter(self, message_type: str, filter_func: Callable):
-        """Add a message filter."""
-        self.router.add_filter(message_type, filter_func)
+    def get_next_message(self, priority: Optional[MessagePriority] = None) -> Optional[AdvancedMessage]:
+        """Get next message from queue, checking highest priority first."""
+        try:
+            if priority:
+                # Get from specific priority queue
+                if self.message_queues[priority]:
+                    return self.message_queues[priority].popleft()
+            else:
+                # Get from highest priority queue first
+                for p in [MessagePriority.CRITICAL, MessagePriority.URGENT, 
+                         MessagePriority.HIGH, MessagePriority.NORMAL, MessagePriority.LOW]:
+                    if self.message_queues[p]:
+                        return self.message_queues[p].popleft()
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get next message: {e}")
+            return None
+    
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Get queue status information."""
+        return {
+            "queue_sizes": {priority.name: len(queue) for priority, queue in self.message_queues.items()},
+            "total_messages": sum(len(queue) for queue in self.message_queues.values()),
+            "routing_stats": self.routing_stats.copy()
+        }
+
+
+class CommunicationAnalytics:
+    """Communication pattern analysis and optimization."""
+    
+    def __init__(self):
+        self.message_history = deque(maxlen=1000)  # Keep last 1000 messages
+        self.analytics_data = {
+            "message_counts": defaultdict(int),
+            "sender_counts": defaultdict(int),
+            "recipient_counts": defaultdict(int),
+            "priority_distribution": defaultdict(int),
+            "type_distribution": defaultdict(int),
+            "response_times": [],
+            "throughput": 0.0
+        }
+        self.analytics_enabled = True
+        logger.info("Communication analytics initialized")
+    
+    def record_message(self, message: AdvancedMessage, response_time: float = 0.0):
+        """Record message for analytics."""
+        if not self.analytics_enabled:
+            return
+        
+        try:
+            # Add to history
+            self.message_history.append(message)
+            
+            # Update analytics
+            self.analytics_data["message_counts"][message.message_type.value] += 1
+            self.analytics_data["sender_counts"][message.sender] += 1
+            self.analytics_data["recipient_counts"][len(message.recipients)] += 1
+            self.analytics_data["priority_distribution"][message.priority.name] += 1
+            self.analytics_data["type_distribution"][message.message_type.value] += 1
+            
+            if response_time > 0:
+                self.analytics_data["response_times"].append(response_time)
+                # Keep only last 100 response times
+                if len(self.analytics_data["response_times"]) > 100:
+                    self.analytics_data["response_times"] = self.analytics_data["response_times"][-100:]
+            
+            # Calculate throughput (messages per second)
+            if len(self.message_history) > 1:
+                time_span = self.message_history[-1].timestamp - self.message_history[0].timestamp
+                if time_span > 0:
+                    self.analytics_data["throughput"] = len(self.message_history) / time_span
+            
+        except Exception as e:
+            logger.error(f"Failed to record message for analytics: {e}")
+    
+    def get_analytics(self) -> Dict[str, Any]:
+        """Get communication analytics."""
+        try:
+            # Calculate average response time
+            avg_response_time = 0.0
+            if self.analytics_data["response_times"]:
+                avg_response_time = sum(self.analytics_data["response_times"]) / len(self.analytics_data["response_times"])
+            
+            return {
+                "enabled": self.analytics_enabled,
+                "total_messages": len(self.message_history),
+                "message_counts": dict(self.analytics_data["message_counts"]),
+                "sender_counts": dict(self.analytics_data["sender_counts"]),
+                "recipient_counts": dict(self.analytics_data["recipient_counts"]),
+                "priority_distribution": dict(self.analytics_data["priority_distribution"]),
+                "type_distribution": dict(self.analytics_data["type_distribution"]),
+                "average_response_time": avg_response_time,
+                "throughput": self.analytics_data["throughput"],
+                "analytics_data": self.analytics_data.copy()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get analytics: {e}")
+            return {
+                "enabled": self.analytics_enabled,
+                "error": str(e)
+            }
+    
+    def enable_analytics(self):
+        """Enable analytics collection."""
+        self.analytics_enabled = True
+        logger.info("Analytics enabled")
+    
+    def disable_analytics(self):
+        """Disable analytics collection."""
+        self.analytics_enabled = False
+        logger.info("Analytics disabled")
+
+
+class AdvancedCommunication:
+    """Advanced communication system with compression, routing, and analytics."""
+    
+    def __init__(self):
+        self.compressor = MessageCompressor()
+        self.router = PriorityRouter()
+        self.analytics = CommunicationAnalytics()
+        self.cross_project_enabled = False
+        self.message_types = [msg_type.value for msg_type in MessageType]
+        self.status = "active"
+        logger.info("Advanced communication system initialized")
+    
+    def send_message(self, content: Any, sender: str, recipients: List[str], 
+                    message_type: str = "agent", priority: str = "normal",
+                    compression: bool = False, ttl: Optional[float] = None) -> Dict[str, Any]:
+        """Send message with advanced features."""
+        try:
+            # Create message
+            message = AdvancedMessage(
+                id=hashlib.md5(f"{sender}{recipients}{time.time()}".encode()).hexdigest()[:8],
+                content=content,
+                sender=sender,
+                recipients=recipients,
+                message_type=MessageType(message_type),
+                priority=MessagePriority[priority.upper()],
+                timestamp=time.time(),
+                ttl=ttl,
+                compression=compression
+            )
+            
+            # Compress if requested
+            if compression:
+                compression_result = self.compressor.compress_message(str(content))
+                if compression_result["compressed"]:
+                    message.content = compression_result["content"]
+                    message.compression = True
+                    message.metadata["compression_stats"] = compression_result
+            
+            # Route message
+            routing_result = self.router.route_message(message)
+            
+            # Record for analytics
+            self.analytics.record_message(message)
+            
+            logger.info(f"Sent message {message.id} from {sender} to {len(recipients)} recipients")
+            
+            return {
+                "success": True,
+                "message_id": message.id,
+                "routing_result": routing_result,
+                "compression_applied": message.compression,
+                "timestamp": message.timestamp
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to send message: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def get_analytics(self) -> Dict[str, Any]:
+        """Get communication analytics."""
+        return self.analytics.get_analytics()
+    
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Get message queue status."""
+        return self.router.get_queue_status()
+    
+    def enable_cross_project(self) -> Dict[str, Any]:
+        """Enable cross-project communication."""
+        try:
+            self.cross_project_enabled = True
+            logger.info("Cross-project communication enabled")
+            return {
+                "success": True,
+                "cross_project_enabled": True,
+                "message": "Cross-project communication enabled"
+            }
+        except Exception as e:
+            logger.error(f"Failed to enable cross-project communication: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def disable_cross_project(self) -> Dict[str, Any]:
+        """Disable cross-project communication."""
+        try:
+            self.cross_project_enabled = False
+            logger.info("Cross-project communication disabled")
+            return {
+                "success": True,
+                "cross_project_enabled": False,
+                "message": "Cross-project communication disabled"
+            }
+        except Exception as e:
+            logger.error(f"Failed to disable cross-project communication: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def share_knowledge(self, knowledge: str, source_project: str, 
+                       target_projects: List[str]) -> Dict[str, Any]:
+        """Share knowledge between projects."""
+        try:
+            if not self.cross_project_enabled:
+                return {
+                    "success": False,
+                    "error": "Cross-project communication is disabled"
+                }
+            
+            # Create knowledge sharing message
+            result = self.send_message(
+                content=knowledge,
+                sender=f"project_{source_project}",
+                recipients=[f"project_{p}" for p in target_projects],
+                message_type="system",
+                priority="normal",
+                compression=True
+            )
+            
+            logger.info(f"Shared knowledge from {source_project} to {target_projects}")
+            
+            return {
+                "success": True,
+                "knowledge_shared": True,
+                "source_project": source_project,
+                "target_projects": target_projects,
+                "message_result": result
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to share knowledge: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def get_compression_stats(self) -> Dict[str, Any]:
+        """Get compression statistics."""
+        return self.compressor.get_compression_stats()
+    
+    def get_message_types(self) -> List[str]:
+        """Get available message types."""
+        return self.message_types.copy()
+    
+    def get_system_status(self) -> Dict[str, Any]:
+        """Get system status."""
+        return {
+            "status": self.status,
+            "cross_project_enabled": self.cross_project_enabled,
+            "compression_stats": self.get_compression_stats(),
+            "queue_status": self.get_queue_status(),
+            "analytics_enabled": self.analytics.analytics_enabled
+        }
+
 
 # Global instance
-advanced_communication = AdvancedCommunicationSystem()
+_advanced_communication = None
+
+def get_advanced_communication() -> AdvancedCommunication:
+    """Get the global advanced communication instance."""
+    global _advanced_communication
+    if _advanced_communication is None:
+        _advanced_communication = AdvancedCommunication()
+    return _advanced_communication

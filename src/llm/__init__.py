@@ -1,11 +1,11 @@
 """LLM integration package."""
 
 from .llm_gateway import LLMGateway, llm_gateway
-from .autogen_integration import AutoGenIntegration, autogen_integration
+from .enhanced_autogen import EnhancedAutoGen, get_enhanced_autogen
 
 __all__ = [
     "LLMGateway",
     "llm_gateway",
-    "AutoGenIntegration", 
-    "autogen_integration"
+    "EnhancedAutoGen",
+    "get_enhanced_autogen"
 ]

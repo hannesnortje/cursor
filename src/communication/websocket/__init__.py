@@ -1,8 +1,6 @@
 """WebSocket communication package."""
 
-from .enhanced_communication import EnhancedCommunicationSystem, enhanced_communication
+# WebSocket communication components are now integrated into the main communication system
+# No direct imports needed here
 
-__all__ = [
-    "EnhancedCommunicationSystem",
-    "enhanced_communication"
-]
+__all__ = []

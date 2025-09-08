@@ -139,10 +139,11 @@ class AgentSystem:
                             import time
                             current_time = time.time()
                             if hasattr(instance, 'started_at') and instance.started_at:
-                                started_dt = datetime.fromisoformat(instance.started_at)
-                                started_time = started_dt.timestamp()
-                                if current_time - started_time > 300:  # 5 minutes
-                                    should_remove = True
+                                if isinstance(instance.started_at, str):
+                                    started_dt = datetime.fromisoformat(instance.started_at)
+                                    started_time = started_dt.timestamp()
+                                    if current_time - started_time > 300:  # 5 minutes
+                                        should_remove = True
                                     logger.info(f"🧹 Found old running instance: {instance.instance_id}")
                     except (OSError, ProcessLookupError) as e:
                         should_remove = True
@@ -326,7 +327,7 @@ class AgentSystem:
             # Store project context in vector database if available
             if self.vector_store:
                 try:
-                    from src.database.qdrant.vector_store import ProjectContext
+                    from src.database.enhanced_vector_store import ProjectContext
                     
                     project_context = ProjectContext(
                         id=f"proj_{project_id}",
@@ -721,7 +722,7 @@ What would you like to work on?""",
             # Store in vector database if available
             if self.vector_store:
                 try:
-                    from src.database.qdrant.vector_store import ConversationPoint
+                    from src.database.enhanced_vector_store import ConversationPoint
                     
                     conversation_point = ConversationPoint(
                         id=message_data["message_id"],
@@ -1748,6 +1749,37 @@ def send_notification(method, params=None):
     print(json.dumps(notification), flush=True)
 
 def main():
+    # Check for command line arguments first
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ['--help', '-h']:
+            print("""
+Enhanced MCP Server with Agent System
+
+Usage: python protocol_server.py [options]
+
+Options:
+  --help, -h          Show this help message
+  --version, -v       Show version information
+  --test              Run in test mode (no MCP protocol)
+
+This server provides:
+- MCP (Model Context Protocol) server for Cursor IDE integration
+- Agent system with specialized agents (Frontend, Backend, Testing, etc.)
+- Vector database integration with Qdrant
+- Dashboard for real-time monitoring
+- Cross-chat communication system
+
+For more information, see the documentation in docs/
+            """)
+            return
+        elif sys.argv[1] in ['--version', '-v']:
+            print("Enhanced MCP Server v1.0.0")
+            return
+        elif sys.argv[1] == '--test':
+            print("Running in test mode - MCP protocol disabled")
+            # Run in test mode without MCP protocol
+            return
+    
     logger.info("Starting enhanced MCP server with agent system...")
     
     # Initialize agent system first (core functionality)
@@ -2058,15 +2090,103 @@ def main():
                             "required": ["project_id"]
                         }
                     },
-                    {
-                        "name": "list_generated_projects",
-                        "description": "List all generated projects",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {}
+                        {
+                            "name": "list_generated_projects",
+                            "description": "List all generated projects",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {}
+                            }
+                        },
+                        
+                        # Phase 9.1: Project-Specific Qdrant Database Tools
+                        {
+                            "name": "start_container",
+                            "description": "Start Qdrant Docker container with error handling",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "create_database",
+                            "description": "Create a new project-specific database with validation",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_name": {"type": "string", "description": "Name of the project"},
+                                    "project_id": {"type": "string", "description": "Optional project ID (auto-generated if not provided)"}
+                                },
+                                "required": ["project_name"]
+                            }
+                        },
+                        {
+                            "name": "list_databases",
+                            "description": "List all project databases with fallback",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {},
+                                "required": []
+                            }
+                        },
+                        {
+                            "name": "switch_database",
+                            "description": "Switch to a specific project database with error handling",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to switch to"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "archive_database",
+                            "description": "Archive a project database with confirmation",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to archive"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "restore_database",
+                            "description": "Restore an archived project database with validation",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to restore"}
+                                },
+                                "required": ["project_id"]
+                            }
+                        },
+                        {
+                            "name": "delete_database",
+                            "description": "Delete a project database with safety checks",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Project ID to delete"},
+                                    "confirm": {"type": "boolean", "description": "Confirmation flag for deletion"}
+                                },
+                                "required": ["project_id", "confirm"]
+                            }
+                        },
+                        {
+                            "name": "get_stats",
+                            "description": "Get database statistics with fallback data",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "project_id": {"type": "string", "description": "Optional project ID for specific stats"}
+                                },
+                                "required": []
+                            }
                         }
-                    }
-                ]
+                    ]
             }
         },
         "serverInfo": {
@@ -2118,603 +2238,11 @@ def main():
                     logger.warning(f"Error auto-spawning dashboard: {e}")
                 
             elif method == "tools/list":
+                # Import consolidated MCP tools
+                from src.mcp_tools.consolidated_handlers import get_all_mcp_tools
+                
                 tools_response = {
-                    "tools": [
-                        # Existing tools (preserved)
-                        {
-                            "name": "add_numbers",
-                            "description": "Add two integers and return the sum.",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "a": {"type": "integer"},
-                                    "b": {"type": "integer"}
-                                },
-                                "required": ["a", "b"]
-                            }
-                        },
-                        {
-                            "name": "reverse_text",
-                            "description": "Reverse the given string.",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "text": {"type": "string"}
-                                },
-                                "required": ["text"]
-                            }
-                        },
-                        # New agent system tools
-                        {
-                            "name": "start_project",
-                            "description": "Start a new project with PDCA framework",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_type": {"type": "string"},
-                                    "project_name": {"type": "string"}
-                                },
-                                "required": ["project_type", "project_name"]
-                            }
-                        },
-                        {
-                            "name": "chat_with_coordinator",
-                            "description": "Direct communication with Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "message": {"type": "string"}
-                                },
-                                "required": ["message"]
-                            }
-                        },
-
-                        # Phase 4: Communication System Tools
-                        {
-                            "name": "start_communication_system",
-                            "description": "Start the communication system (WebSocket + Redis)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
-                            }
-                        },
-                        {
-                            "name": "get_communication_status",
-                            "description": "Get communication system status and health",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
-                            }
-                        },
-                        # Phase 4.2: Cross-Chat Communication Tools
-                        {
-                            "name": "create_cross_chat_session",
-                            "description": "Create a new cross-chat session for multi-chat communication",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "chat_id": {"type": "string"},
-                                    "chat_type": {"type": "string"},
-                                    "participants": {"type": "array", "items": {"type": "string"}}
-                                },
-                                "required": ["chat_id", "chat_type", "participants"]
-                            }
-                        },
-                        {
-                            "name": "broadcast_cross_chat_message",
-                            "description": "Broadcast a message across multiple chat sessions",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "source_chat": {"type": "string"},
-                                    "source_agent": {"type": "string"},
-                                    "content": {"type": "string"},
-                                    "target_chats": {"type": "array", "items": {"type": "string"}}
-                                },
-                                "required": ["source_chat", "source_agent", "content", "target_chats"]
-                            }
-                        },
-                        # Phase 4.3: Message Queue Integration Tools
-                        {
-                            "name": "get_cross_chat_messages",
-                            "description": "Get cross-chat messages for a specific chat or all chats",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "chat_id": {"type": "string"},
-                                    "limit": {"type": "integer"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "search_cross_chat_messages",
-                            "description": "Search cross-chat messages by content",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "query": {"type": "string"},
-                                    "chat_id": {"type": "string"},
-                                    "limit": {"type": "integer"}
-                                },
-                                "required": ["query"]
-                            }
-                        },
-                        # New Agile Agent Tools
-                        {
-                            "name": "create_agile_project",
-                            "description": "Create a new agile project",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_name": {"type": "string"},
-                                    "project_type": {"type": "string", "default": "scrum"},
-                                    "sprint_length": {"type": "integer"},
-                                    "team_size": {"type": "integer", "default": 5}
-                                },
-                                "required": ["project_name"]
-                            }
-                        },
-                        {
-                            "name": "create_user_story",
-                            "description": "Create a new user story in an agile project",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_id": {"type": "string"},
-                                    "title": {"type": "string"},
-                                    "description": {"type": "string"},
-                                    "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
-                                    "story_points": {"type": "integer"},
-                                    "priority": {"type": "string", "default": "medium"},
-                                    "epic": {"type": "string"}
-                                },
-                                "required": ["project_id", "title", "description", "acceptance_criteria"]
-                            }
-                        },
-                        {
-                            "name": "create_sprint",
-                            "description": "Create a new sprint in an agile project",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_id": {"type": "string"},
-                                    "sprint_name": {"type": "string"},
-                                    "start_date": {"type": "string"},
-                                    "end_date": {"type": "string"},
-                                    "goal": {"type": "string"}
-                                },
-                                "required": ["project_id", "sprint_name"]
-                            }
-                        },
-                        {
-                            "name": "plan_sprint",
-                            "description": "Plan a sprint by assigning user stories",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "sprint_id": {"type": "string"},
-                                    "story_ids": {"type": "array", "items": {"type": "string"}}
-                                },
-                                "required": ["sprint_id", "story_ids"]
-                            }
-                        },
-                        {
-                            "name": "complete_user_story",
-                            "description": "Mark a user story as completed",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "story_id": {"type": "string"},
-                                    "actual_hours": {"type": "number"}
-                                },
-                                "required": ["story_id"]
-                            }
-                        },
-                        {
-                            "name": "get_project_status",
-                            "description": "Get comprehensive project status and metrics for an agile project",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_id": {"type": "string"}
-                                },
-                                "required": ["project_id"]
-                            }
-                        },
-                        {
-                            "name": "get_sprint_burndown",
-                            "description": "Generate burndown chart data for a sprint",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "sprint_id": {"type": "string"}
-                                },
-                                "required": ["sprint_id"]
-                            }
-                        },
-                        {
-                            "name": "calculate_team_velocity",
-                            "description": "Calculate team velocity based on completed sprints",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_id": {"type": "string"},
-                                    "sprint_count": {"type": "integer"}
-                                },
-                                "required": ["project_id"]
-                            }
-                        },
-                        # Phase 5.2: Project Generation Agent Tools
-                        {
-                            "name": "list_project_templates",
-                            "description": "List available project templates with optional filtering by language and category",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "language": {"type": "string", "description": "Filter by programming language (python, cpp, java, go, rust, typescript, etc.)"},
-                                    "category": {"type": "string", "description": "Filter by project category (web, api, library, cli, data-science, etc.)"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "generate_project",
-                            "description": "Generate a new project from a template",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "template_id": {"type": "string", "description": "ID of the template to use"},
-                                    "project_name": {"type": "string", "description": "Name of the project to create"},
-                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"},
-                                    "customizations": {"type": "object", "description": "Optional customizations for the project"}
-                                },
-                                "required": ["template_id", "project_name"]
-                            }
-                        },
-                        {
-                            "name": "customize_project_template",
-                            "description": "Customize an existing project template",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "template_id": {"type": "string", "description": "ID of the template to customize"},
-                                    "customizations": {"type": "object", "description": "Customizations to apply to the template"}
-                                },
-                                "required": ["template_id", "customizations"]
-                            }
-                        },
-                        {
-                            "name": "get_generated_project_status",
-                            "description": "Get status of a generated project",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_id": {"type": "string", "description": "ID of the generated project"}
-                                },
-                                "required": ["project_id"]
-                            }
-                        },
-                        {
-                            "name": "list_generated_projects",
-                            "description": "List all generated projects",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
-                            }
-                        },
-                        {
-                            "name": "create_custom_project",
-                            "description": "Create a completely custom project with user-defined structure",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_name": {"type": "string", "description": "Name of the custom project to create"},
-                                    "language": {"type": "string", "description": "Programming language for the project"},
-                                    "custom_structure": {"type": "object", "description": "Optional custom project structure definition"},
-                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"}
-                                },
-                                "required": ["project_name", "language"]
-                            }
-                        },
-                        {
-                            "name": "coordinator_create_project_from_template",
-                            "description": "Create a project using a template through the Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "template_id": {"type": "string", "description": "ID of the template to use"},
-                                    "project_name": {"type": "string", "description": "Name of the project to create"},
-                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"},
-                                    "customizations": {"type": "object", "description": "Optional customizations for the project"}
-                                },
-                                "required": ["template_id", "project_name"]
-                            }
-                        },
-                        # Phase 5.3: Backend Agent Tools
-                        {
-                            "name": "design_api",
-                            "description": "Design a new API specification (REST, GraphQL, gRPC)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "api_type": {"type": "string", "description": "Type of API (rest, graphql, grpc)"},
-                                    "name": {"type": "string", "description": "Name of the API"},
-                                    "description": {"type": "string", "description": "Description of the API"},
-                                    "endpoints": {"type": "array", "items": {"type": "object"}, "description": "List of API endpoints"},
-                                    "data_models": {"type": "array", "items": {"type": "object"}, "description": "Data models for the API"},
-                                    "authentication": {"type": "object", "description": "Authentication configuration"}
-                                },
-                                "required": ["api_type", "name"]
-                            }
-                        },
-                        {
-                            "name": "create_database_schema",
-                            "description": "Create a new database schema design",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "database_type": {"type": "string", "description": "Type of database (postgresql, mysql, mongodb, redis)"},
-                                    "name": {"type": "string", "description": "Name of the database schema"},
-                                    "description": {"type": "string", "description": "Description of the database schema"},
-                                    "entities": {"type": "array", "items": {"type": "object"}, "description": "Database entities/tables"},
-                                    "relationships": {"type": "array", "items": {"type": "object"}, "description": "Entity relationships"},
-                                    "constraints": {"type": "array", "items": {"type": "object"}, "description": "Database constraints"},
-                                    "indexes": {"type": "array", "items": {"type": "object"}, "description": "Database indexes"}
-                                },
-                                "required": ["database_type", "name"]
-                            }
-                        },
-                        {
-                            "name": "implement_security",
-                            "description": "Implement security configuration (authentication, authorization, encryption)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "security_type": {"type": "string", "description": "Type of security (authentication, authorization, encryption)"},
-                                    "name": {"type": "string", "description": "Name of the security configuration"},
-                                    "description": {"type": "string", "description": "Description of the security configuration"},
-                                    "method": {"type": "string", "description": "Security method (jwt, oauth2, rbac, aes, rsa)"},
-                                    "configuration": {"type": "object", "description": "Security configuration parameters"}
-                                },
-                                "required": ["security_type", "name"]
-                            }
-                        },
-                        {
-                            "name": "design_architecture",
-                            "description": "Design system architecture (monolith, microservices, serverless)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "architecture_type": {"type": "string", "description": "Type of architecture (monolith, microservices, serverless)"},
-                                    "name": {"type": "string", "description": "Name of the architecture design"},
-                                    "description": {"type": "string", "description": "Description of the architecture design"},
-                                    "components": {"type": "array", "items": {"type": "object"}, "description": "System components"},
-                                    "deployment": {"type": "string", "description": "Deployment type (docker, kubernetes, cloud, bare_metal)"},
-                                    "scaling": {"type": "object", "description": "Scaling configuration"}
-                                },
-                                "required": ["architecture_type", "name"]
-                            }
-                        },
-                        {
-                            "name": "generate_api_code",
-                            "description": "Generate API code for the specified language and framework",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "language": {"type": "string", "description": "Programming language (python, nodejs, java, go, rust)"},
-                                    "framework": {"type": "string", "description": "Framework (fastapi, express, spring, gin, actix-web)"},
-                                    "specification_id": {"type": "string", "description": "ID of the API specification to use"}
-                                },
-                                "required": ["language", "framework", "specification_id"]
-                            }
-                        },
-                        {
-                            "name": "get_backend_specifications",
-                            "description": "Get all backend specifications (APIs, databases, security, architecture)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "type": {"type": "string", "description": "Type of specification (api, database, security, architecture, all)"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "get_supported_technologies",
-                            "description": "Get list of supported technologies (languages, frameworks, databases)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "category": {"type": "string", "description": "Category (languages, frameworks, databases)"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "coordinator_create_custom_project",
-                            "description": "Create a custom project through the Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_name": {"type": "string", "description": "Name of the custom project to create"},
-                                    "language": {"type": "string", "description": "Programming language for the project"},
-                                    "custom_structure": {"type": "object", "description": "Optional custom project structure definition"},
-                                    "target_path": {"type": "string", "default": ".", "description": "Path where to create the project"}
-                                },
-                                "required": ["project_name", "language"]
-                            }
-                        },
-                        {
-                            "name": "coordinator_list_project_templates",
-                            "description": "List available project templates through the Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "language": {"type": "string", "description": "Filter by programming language"},
-                                    "category": {"type": "string", "description": "Filter by project category"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "coordinator_customize_project_template",
-                            "description": "Customize a project template through the Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "template_id": {"type": "string", "description": "ID of the template to customize"},
-                                    "customizations": {"type": "object", "description": "Customizations to apply to the template"}
-                                },
-                                "required": ["template_id", "customizations"]
-                            }
-                        },
-                        {
-                            "name": "coordinator_get_generated_project_status",
-                            "description": "Get status of a generated project through the Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "project_id": {"type": "string", "description": "ID of the generated project"}
-                                },
-                                "required": ["project_id"]
-                            }
-                        },
-                        {
-                            "name": "coordinator_list_generated_projects",
-                            "description": "List all generated projects through the Coordinator Agent",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
-                            }
-                        },
-                        # Phase 6: LLM Integration & Model Orchestration Tools
-                        {
-                            "name": "get_llm_models",
-                            "description": "Get all available LLM models from all providers (Cursor, Docker Ollama, LM Studio)",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "provider": {"type": "string", "description": "Filter by provider (cursor, docker_ollama, lm_studio, all)"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "select_best_llm_model",
-                            "description": "Select the best LLM model for a specific task type",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "task_type": {"type": "string", "description": "Type of task (coding, creative, analysis, general)"},
-                                    "context": {"type": "string", "description": "Additional context for model selection"}
-                                },
-                                "required": ["task_type"]
-                            }
-                        },
-                        {
-                            "name": "generate_with_llm",
-                            "description": "Generate text using LLM with automatic fallback",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "prompt": {"type": "string", "description": "Text prompt for generation"},
-                                    "task_type": {"type": "string", "description": "Type of task (coding, creative, analysis, general)"},
-                                    "preferred_model": {"type": "string", "description": "Preferred model name (optional)"},
-                                    "temperature": {"type": "number", "description": "Temperature for generation (0.0-1.0)"},
-                                    "max_tokens": {"type": "integer", "description": "Maximum tokens to generate"}
-                                },
-                                "required": ["prompt", "task_type"]
-                            }
-                        },
-                        {
-                            "name": "get_llm_performance_stats",
-                            "description": "Get performance statistics for all LLM models",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {}
-                            }
-                        },
-                        {
-                            "name": "test_llm_integration",
-                            "description": "Test LLM integration and model availability",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "test_type": {"type": "string", "description": "Type of test (connectivity, generation, fallback)"}
-                                },
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "orchestrate_llm_models",
-                            "description": "Orchestrate multiple LLM models for complex tasks",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "task_description": {"type": "string", "description": "Description of the complex task"},
-                                    "required_capabilities": {"type": "array", "items": {"type": "string"}, "description": "Required model capabilities"},
-                                    "coordination_strategy": {"type": "string", "description": "Strategy for model coordination (sequential, parallel, hybrid)"}
-                                },
-                                "required": ["task_description", "required_capabilities"]
-                            }
-                        },
-                        # Instance Management Tools
-                        {
-                            "name": "get_instance_info",
-                            "description": "Get information about the current MCP server instance",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "get_registry_status",
-                            "description": "Get status of the instance registry and all running instances",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "get_dashboard_status",
-                            "description": "Get status of dashboard for current instance",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "get_all_dashboards_status",
-                            "description": "Get status of all active dashboards",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "get_browser_status",
-                            "description": "Get browser manager status and available browsers",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                                "required": []
-                            }
-                        },
-                        {
-                            "name": "open_dashboard_browser",
-                            "description": "Manually open dashboard in browser for current instance",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                                "required": []
-                            }
-                        }
-                    ]
+                    "tools": get_all_mcp_tools()
                 }
                 send_response(request_id, tools_response)
                 
@@ -2723,1051 +2251,15 @@ def main():
                 tool_name = data.get("params", {}).get("name")
                 arguments = data.get("params", {}).get("arguments", {})
                 
-                # Existing tools (preserved functionality)
-                if tool_name == "add_numbers":
-                    a = arguments.get("a", 0)
-                    b = arguments.get("b", 0)
-                    result = a + b
-                    send_response(request_id, {
-                        "content": [{"type": "text", "text": f"The sum of {a} and {b} is {result}"}],
-                        "structuredContent": {"result": result}
-                    })
-                    
-                elif tool_name == "reverse_text":
-                    text = arguments.get("text", "")
-                    result = text[::-1]
-                    send_response(request_id, {
-                        "content": [{"type": "text", "text": f"'{text}' reversed is '{result}'"}],
-                        "structuredContent": {"result": result}
-                    })
+                # Import consolidated MCP tools handler
+                from src.mcp_tools.consolidated_handlers import handle_mcp_tool
                 
-                # New agent system tools
-                elif tool_name == "start_project":
-                    project_type = arguments.get("project_type", "")
-                    project_name = arguments.get("project_name", "")
-                    
-                    if not project_type or not project_name:
-                        send_response(request_id, error={
-                            "code": -32602, 
-                            "message": "Both project_type and project_name are required"
-                        })
-                    else:
-                        result = agent_system.start_project(project_type, project_name)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to start project: {result['error']}"
-                            })
-                
-                elif tool_name == "chat_with_coordinator":
-                    message = arguments.get("message", "")
-                    
-                    if not message:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "Message is required"
-                        })
-                    else:
-                        result = agent_system.chat_with_coordinator(message)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["response"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Coordinator chat failed: {result['error']}"
-                            })
-                
-
-                
-                # Phase 4: Communication System Tools
-                elif tool_name == "start_communication_system":
-                    result = agent_system.start_communication_system()
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to start communication system: {result['error']}"
-                        })
-                
-                elif tool_name == "get_communication_status":
-                    result = agent_system.get_communication_status()
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": "Communication status retrieved successfully"}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get communication status: {result['error']}"
-                        })
-                
-                # Phase 4.2: Cross-Chat Communication Tools
-                elif tool_name == "create_cross_chat_session":
-                    chat_id = arguments.get("chat_id", "")
-                    chat_type = arguments.get("chat_type", "")
-                    participants = arguments.get("participants", [])
-                    
-                    if not chat_id or not chat_type or not participants:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "chat_id, chat_type, and participants are required"
-                        })
-                    else:
-                        result = agent_system.create_cross_chat_session(chat_id, chat_type, participants)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create cross-chat session: {result['error']}"
-                            })
-                
-                elif tool_name == "broadcast_cross_chat_message":
-                    source_chat = arguments.get("source_chat", "")
-                    source_agent = arguments.get("source_agent", "")
-                    content = arguments.get("content", "")
-                    target_chats = arguments.get("target_chats", [])
-                    
-                    if not source_chat or not source_agent or not content or not target_chats:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "source_chat, source_agent, content, and target_chats are required"
-                        })
-                    else:
-                        result = agent_system.broadcast_cross_chat_message(source_chat, source_agent, content, target_chats)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to broadcast message: {result['error']}"
-                            })
-                
-                # Phase 4.3: Message Queue Integration Tools
-                elif tool_name == "get_cross_chat_messages":
-                    chat_id = arguments.get("chat_id")
-                    limit = arguments.get("limit", 50)
-                    
-                    result = agent_system.get_cross_chat_messages(chat_id, limit)
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": f"Retrieved {result.get('message_count', result.get('total_messages', 0))} cross-chat messages"}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get cross-chat messages: {result['error']}"
-                        })
-                
-                elif tool_name == "search_cross_chat_messages":
-                    query = arguments.get("query", "")
-                    chat_id = arguments.get("chat_id")
-                    limit = arguments.get("limit", 50)
-                    
-                    if not query:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "query is required"
-                        })
-                    else:
-                        result = agent_system.search_cross_chat_messages(query, chat_id, limit)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": f"Found {result['results_count']} messages matching '{query}'"}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to search cross-chat messages: {result['error']}"
-                            })
-                
-                # New Agile Agent Tools
-                elif tool_name == "create_agile_project":
-                    project_name = arguments.get("project_name", "")
-                    project_type = arguments.get("project_type", "scrum")
-                    sprint_length = arguments.get("sprint_length")
-                    team_size = arguments.get("team_size", 5)
-
-                    if not project_name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_name is required"
-                        })
-                    else:
-                        result = agent_system.create_agile_project(project_name, project_type, sprint_length, team_size)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create agile project: {result['error']}"
-                            })
-                
-                elif tool_name == "create_user_story":
-                    project_id = arguments.get("project_id", "")
-                    title = arguments.get("title", "")
-                    description = arguments.get("description", "")
-                    acceptance_criteria = arguments.get("acceptance_criteria", [])
-                    story_points = arguments.get("story_points")
-                    priority = arguments.get("priority", "medium")
-                    epic = arguments.get("epic")
-
-                    if not project_id or not title or not description or not acceptance_criteria:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_id, title, description, and acceptance_criteria are required"
-                        })
-                    else:
-                        result = agent_system.create_user_story(project_id, title, description, acceptance_criteria, story_points, priority, epic)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create user story: {result['error']}"
-                            })
-                
-                elif tool_name == "create_sprint":
-                    project_id = arguments.get("project_id", "")
-                    sprint_name = arguments.get("sprint_name", "")
-                    start_date = arguments.get("start_date")
-                    end_date = arguments.get("end_date")
-                    goal = arguments.get("goal")
-
-                    if not project_id or not sprint_name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_id and sprint_name are required"
-                        })
-                    else:
-                        result = agent_system.create_sprint(project_id, sprint_name, start_date, end_date, goal)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create sprint: {result['error']}"
-                            })
-                
-                elif tool_name == "plan_sprint":
-                    sprint_id = arguments.get("sprint_id", "")
-                    story_ids = arguments.get("story_ids", [])
-
-                    if not sprint_id or not story_ids:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "sprint_id and story_ids are required"
-                        })
-                    else:
-                        result = agent_system.plan_sprint(sprint_id, story_ids)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to plan sprint: {result['error']}"
-                            })
-                
-                elif tool_name == "complete_user_story":
-                    story_id = arguments.get("story_id", "")
-                    actual_hours = arguments.get("actual_hours")
-
-                    if not story_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "story_id is required"
-                        })
-                    else:
-                        result = agent_system.complete_user_story(story_id, actual_hours)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to complete user story: {result['error']}"
-                            })
-                
-                elif tool_name == "get_project_status":
-                    project_id = arguments.get("project_id", "")
-                    if not project_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_id is required"
-                        })
-                    else:
-                        result = agent_system.get_project_status(project_id)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to get project status: {result['error']}"
-                            })
-                
-                elif tool_name == "get_sprint_burndown":
-                    sprint_id = arguments.get("sprint_id", "")
-                    if not sprint_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "sprint_id is required"
-                        })
-                    else:
-                        result = agent_system.get_sprint_burndown(sprint_id)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to get sprint burndown: {result['error']}"
-                            })
-                
-                elif tool_name == "calculate_team_velocity":
-                    project_id = arguments.get("project_id", "")
-                    sprint_count = arguments.get("sprint_count")
-
-                    if not project_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_id is required"
-                        })
-                    else:
-                        result = agent_system.calculate_team_velocity(project_id, sprint_count)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to calculate team velocity: {result['error']}"
-                            })
-                
-                # Project Generation Agent Tools
-                elif tool_name == "list_project_templates":
-                    language = arguments.get("language")
-                    category = arguments.get("category")
-                    
-                    result = agent_system.list_project_templates(language, category)
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to list project templates: {result['error']}"
-                        })
-                
-                elif tool_name == "generate_project":
-                    template_id = arguments.get("template_id", "")
-                    project_name = arguments.get("project_name", "")
-                    target_path = arguments.get("target_path", ".")
-                    customizations = arguments.get("customizations", {})
-                    
-                    if not template_id or not project_name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "template_id and project_name are required"
-                        })
-                    else:
-                        result = agent_system.generate_project(template_id, project_name, target_path, customizations)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to generate project: {result['error']}"
-                            })
-                
-                elif tool_name == "customize_project_template":
-                    template_id = arguments.get("template_id", "")
-                    customizations = arguments.get("customizations", {})
-                    
-                    if not template_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "template_id is required"
-                        })
-                    else:
-                        result = agent_system.customize_project_template(template_id, customizations)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to customize template: {result['error']}"
-                            })
-                
-                elif tool_name == "get_generated_project_status":
-                    project_id = arguments.get("project_id", "")
-                    if not project_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_id is required"
-                        })
-                    else:
-                        result = agent_system.get_generated_project_status(project_id)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to get generated project status: {result['error']}"
-                            })
-                
-                elif tool_name == "list_generated_projects":
-                    result = agent_system.list_generated_projects()
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to list generated projects: {result['error']}"
-                        })
-                
-                elif tool_name == "create_custom_project":
-                    project_name = arguments.get("project_name", "")
-                    language = arguments.get("language", "")
-                    custom_structure = arguments.get("custom_structure", {})
-                    target_path = arguments.get("target_path", ".")
-                    
-                    if not project_name or not language:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_name and language are required"
-                        })
-                    else:
-                        result = agent_system.create_custom_project(project_name, language, custom_structure, target_path)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create custom project: {result['error']}"
-                            })
-                
-                # Phase 5.3: Backend Agent Tools
-                elif tool_name == "design_api":
-                    api_type = arguments.get("api_type", "")
-                    name = arguments.get("name", "")
-                    description = arguments.get("description", "")
-                    endpoints = arguments.get("endpoints", [])
-                    data_models = arguments.get("data_models", [])
-                    authentication = arguments.get("authentication", {})
-                    
-                    if not api_type or not name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "api_type and name are required"
-                        })
-                    else:
-                        result = agent_system.design_api(api_type, name, description, endpoints, data_models, authentication)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to design API: {result['error']}"
-                            })
-                
-                elif tool_name == "create_database_schema":
-                    database_type = arguments.get("database_type", "")
-                    name = arguments.get("name", "")
-                    description = arguments.get("description", "")
-                    entities = arguments.get("entities", [])
-                    relationships = arguments.get("relationships", [])
-                    constraints = arguments.get("constraints", [])
-                    indexes = arguments.get("indexes", [])
-                    
-                    if not database_type or not name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "database_type and name are required"
-                        })
-                    else:
-                        result = agent_system.create_database_schema(database_type, name, description, entities, relationships, constraints, indexes)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create database schema: {result['error']}"
-                            })
-                
-                elif tool_name == "implement_security":
-                    security_type = arguments.get("security_type", "")
-                    name = arguments.get("name", "")
-                    description = arguments.get("description", "")
-                    method = arguments.get("method", "jwt")
-                    configuration = arguments.get("configuration", {})
-                    
-                    if not security_type or not name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "security_type and name are required"
-                        })
-                    else:
-                        result = agent_system.implement_security(security_type, name, description, method, configuration)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to implement security: {result['error']}"
-                            })
-                
-                elif tool_name == "design_architecture":
-                    architecture_type = arguments.get("architecture_type", "")
-                    name = arguments.get("name", "")
-                    description = arguments.get("description", "")
-                    components = arguments.get("components", [])
-                    deployment = arguments.get("deployment", "docker")
-                    scaling = arguments.get("scaling", {})
-                    
-                    if not architecture_type or not name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "architecture_type and name are required"
-                        })
-                    else:
-                        result = agent_system.design_architecture(architecture_type, name, description, components, deployment, scaling)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to design architecture: {result['error']}"
-                            })
-                
-                elif tool_name == "generate_api_code":
-                    language = arguments.get("language", "")
-                    framework = arguments.get("framework", "")
-                    specification_id = arguments.get("specification_id", "")
-                    
-                    if not language or not framework or not specification_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "language, framework, and specification_id are required"
-                        })
-                    else:
-                        result = agent_system.generate_api_code(language, framework, specification_id)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to generate API code: {result['error']}"
-                            })
-                
-                elif tool_name == "get_backend_specifications":
-                    spec_type = arguments.get("type", "all")
-                    result = agent_system.get_backend_specifications(spec_type)
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get backend specifications: {result['error']}"
-                        })
-                
-                elif tool_name == "get_supported_technologies":
-                    category = arguments.get("category")
-                    result = agent_system.get_supported_technologies(category)
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get supported technologies: {result['error']}"
-                        })
-                
-                elif tool_name == "list_agents":
-                    result = agent_system.list_agents()
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": f"Retrieved {result['total_agents']} agents"}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to list agents: {result['error']}"
-                        })
-                
-                # Coordinator-based Project Generation Tools
-                elif tool_name == "coordinator_create_project_from_template":
-                    template_id = arguments.get("template_id", "")
-                    project_name = arguments.get("project_name", "")
-                    target_path = arguments.get("target_path", ".")
-                    customizations = arguments.get("customizations", {})
-                    
-                    if not template_id or not project_name:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "template_id and project_name are required"
-                        })
-                    else:
-                        # Use the Coordinator Agent through chat_with_coordinator
-                        message = {
-                            "type": "project_generation",
-                            "action": "create_from_template",
-                            "template_id": template_id,
-                            "project_name": project_name,
-                            "target_path": target_path,
-                            "customizations": customizations
-                        }
-                        
-                        result = agent_system.chat_with_coordinator(json.dumps(message))
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["response"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create project through coordinator: {result['error']}"
-                            })
-                
-                elif tool_name == "coordinator_create_custom_project":
-                    project_name = arguments.get("project_name", "")
-                    language = arguments.get("language", "")
-                    custom_structure = arguments.get("custom_structure", {})
-                    target_path = arguments.get("target_path", ".")
-                    
-                    if not project_name or not language:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_name and language are required"
-                        })
-                    else:
-                        # Use the Coordinator Agent through chat_with_coordinator
-                        message = {
-                            "type": "project_generation",
-                            "action": "create_custom",
-                            "project_name": project_name,
-                            "language": language,
-                            "custom_structure": custom_structure,
-                            "target_path": target_path
-                        }
-                        
-                        result = agent_system.chat_with_coordinator(json.dumps(message))
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["response"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to create custom project through coordinator: {result['error']}"
-                            })
-                
-                elif tool_name == "coordinator_list_project_templates":
-                    language = arguments.get("language")
-                    category = arguments.get("category")
-                    
-                    # Use the Coordinator Agent through chat_with_coordinator
-                    message = {
-                        "type": "project_generation",
-                        "action": "list_templates",
-                        "language": language,
-                            "category": category
-                    }
-                    
-                    result = agent_system.chat_with_coordinator(json.dumps(message))
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["response"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to list templates through coordinator: {result['error']}"
-                        })
-                
-                elif tool_name == "coordinator_customize_project_template":
-                    template_id = arguments.get("template_id", "")
-                    customizations = arguments.get("customizations", {})
-                    
-                    if not template_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "template_id is required"
-                        })
-                    else:
-                        # Use the Coordinator Agent through chat_with_coordinator
-                        message = {
-                            "type": "project_generation",
-                            "action": "customize_template",
-                            "template_id": template_id,
-                            "customizations": customizations
-                        }
-                        
-                        result = agent_system.chat_with_coordinator(json.dumps(message))
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["response"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to customize template through coordinator: {result['error']}"
-                            })
-                
-                elif tool_name == "coordinator_get_generated_project_status":
-                    project_id = arguments.get("project_id", "")
-                    if not project_id:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "project_id is required"
-                        })
-                    else:
-                        # Use the Coordinator Agent through chat_with_coordinator
-                        message = {
-                            "type": "project_generation",
-                            "action": "get_status",
-                            "project_id": project_id
-                        }
-                        
-                        result = agent_system.chat_with_coordinator(json.dumps(message))
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["response"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to get project status through coordinator: {result['error']}"
-                            })
-                
-                elif tool_name == "coordinator_list_generated_projects":
-                    # Use the Coordinator Agent through chat_with_coordinator
-                    message = {
-                        "type": "project_generation",
-                        "action": "list_projects"
-                    }
-                    
-                    result = agent_system.chat_with_coordinator(json.dumps(message))
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["response"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to list generated projects through coordinator: {result['error']}"
-                        })
-                
-                # Phase 6: LLM Integration & Model Orchestration Tools
-                elif tool_name == "get_llm_models":
-                    provider = arguments.get("provider", "all")
-                    result = agent_system.get_llm_models(provider)
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get LLM models: {result['error']}"
-                        })
-                
-                elif tool_name == "select_best_llm_model":
-                    task_type = arguments.get("task_type", "")
-                    context = arguments.get("context", "")
-                    
-                    if not task_type:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "task_type is required"
-                        })
-                    else:
-                        result = agent_system.select_best_llm_model(task_type, context)
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to select best LLM model: {result['error']}"
-                            })
-                
-                elif tool_name == "generate_with_llm":
-                    prompt = arguments.get("prompt", "")
-                    task_type = arguments.get("task_type", "")
-                    preferred_model = arguments.get("preferred_model", "")
-                    temperature = arguments.get("temperature", 0.7)
-                    max_tokens = arguments.get("max_tokens", 4096)
-                    
-                    if not prompt or not task_type:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "Both prompt and task_type are required"
-                        })
-                    else:
-                        result = agent_system.generate_with_llm(
-                            prompt, task_type, preferred_model, temperature, max_tokens
-                        )
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to generate with LLM: {result['error']}"
-                            })
-                
-                elif tool_name == "get_llm_performance_stats":
-                    result = agent_system.get_llm_performance_stats()
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get LLM performance stats: {result['error']}"
-                        })
-                
-                elif tool_name == "test_llm_integration":
-                    test_type = arguments.get("test_type", "connectivity")
-                    result = agent_system.test_llm_integration(test_type)
-                    if result["success"]:
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": result["message"]}],
-                            "structuredContent": result
-                        })
-                    else:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to test LLM integration: {result['error']}"
-                        })
-                
-                elif tool_name == "orchestrate_llm_models":
-                    task_description = arguments.get("task_description", "")
-                    required_capabilities = arguments.get("required_capabilities", [])
-                    coordination_strategy = arguments.get("coordination_strategy", "sequential")
-                    
-                    if not task_description or not required_capabilities:
-                        send_response(request_id, error={
-                            "code": -32602,
-                            "message": "Both task_description and required_capabilities are required"
-                        })
-                    else:
-                        result = agent_system.orchestrate_llm_models(
-                            task_description, required_capabilities, coordination_strategy
-                        )
-                        if result["success"]:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": result["message"]}],
-                                "structuredContent": result
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to orchestrate LLM models: {result['error']}"
-                            })
-                
-                # Instance Management Tools
-                elif tool_name == "get_instance_info":
-                    try:
-                        instance_info = agent_system.get_instance_info()
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": f"Instance Information:\n{json.dumps(instance_info, indent=2)}"}],
-                            "structuredContent": instance_info
-                        })
-                    except Exception as e:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get instance info: {str(e)}"
-                        })
-                
-                elif tool_name == "get_registry_status":
-                    try:
-                        if agent_system.registry:
-                            status = agent_system.registry.get_registry_status()
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": f"Registry Status:\n{json.dumps(status, indent=2)}"}],
-                                "structuredContent": status
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": "Instance registry not available"
-                            })
-                    except Exception as e:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get registry status: {str(e)}"
-                        })
-                
-                elif tool_name == "get_dashboard_status":
-                    try:
-                        from src.dashboard.dashboard_spawner import get_dashboard_spawner
-                        spawner = get_dashboard_spawner()
-                        status = spawner.get_dashboard_status(agent_system.instance_id)
-                        
-                        if status:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": f"Dashboard Status:\n{json.dumps(status, indent=2)}"}],
-                                "structuredContent": status
-                            })
-                        else:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": f"No dashboard found for instance {agent_system.instance_id}"}],
-                                "structuredContent": {"status": "not_found", "instance_id": agent_system.instance_id}
-                            })
-                    except Exception as e:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get dashboard status: {str(e)}"
-                        })
-                
-                elif tool_name == "get_all_dashboards_status":
-                    try:
-                        from src.dashboard.dashboard_spawner import get_dashboard_spawner
-                        spawner = get_dashboard_spawner()
-                        status = spawner.get_all_dashboards_status()
-                        
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": f"All Dashboards Status:\n{json.dumps(status, indent=2)}"}],
-                            "structuredContent": status
-                        })
-                    except Exception as e:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get all dashboards status: {str(e)}"
-                        })
-                
-                elif tool_name == "get_browser_status":
-                    try:
-                        from src.dashboard.browser_manager import get_browser_status
-                        status = get_browser_status()
-                        
-                        send_response(request_id, {
-                            "content": [{"type": "text", "text": f"Browser Status:\n{json.dumps(status, indent=2)}"}],
-                            "structuredContent": status
-                        })
-                    except Exception as e:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to get browser status: {str(e)}"
-                        })
-                
-                elif tool_name == "open_dashboard_browser":
-                    try:
-                        from src.dashboard.dashboard_spawner import get_dashboard_spawner
-                        spawner = get_dashboard_spawner()
-                        success = spawner.open_dashboard_browser(agent_system.instance_id)
-                        
-                        if success:
-                            send_response(request_id, {
-                                "content": [{"type": "text", "text": f"✅ Dashboard opened in browser for instance {agent_system.instance_id}"}],
-                                "structuredContent": {"success": True, "instance_id": agent_system.instance_id}
-                            })
-                        else:
-                            send_response(request_id, error={
-                                "code": -32603,
-                                "message": f"Failed to open dashboard in browser for instance {agent_system.instance_id}"
-                            })
-                    except Exception as e:
-                        send_response(request_id, error={
-                            "code": -32603,
-                            "message": f"Failed to open dashboard browser: {str(e)}"
-                        })
-                
+                # Try to handle the tool with consolidated handler
+                if handle_mcp_tool(tool_name, arguments, request_id, send_response):
+                    # Tool was handled successfully
+                    pass
                 else:
+                    # Tool not found
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
                     
             else:
@@ -3787,6 +2279,8 @@ def cleanup_on_exit():
     logger.info("🧹 Cleaning up MCP server resources...")
     try:
         import subprocess
+        import time
+        from datetime import datetime
         
         # Only cleanup dashboard for current instance
         if current_instance_id:
@@ -3838,8 +2332,6 @@ def cleanup_on_exit():
                     logger.info(f"✅ Instance {current_instance_id} marked as stopped in registry")
                     
                     # Clean up old instances (more aggressive cleanup on exit)
-                    import time
-                    from datetime import datetime
                     current_time = time.time()
                     old_instances = []
                     
@@ -3848,10 +2340,11 @@ def cleanup_on_exit():
                         
                         # Remove stopped instances older than 5 minutes
                         if instance.status.value == "stopped" and instance.stopped_at:
-                            stopped_dt = datetime.fromisoformat(instance.stopped_at)
-                            stopped_time = stopped_dt.timestamp()
-                            if current_time - stopped_time > 300:  # 5 minutes
-                                should_remove = True
+                            if isinstance(instance.stopped_at, str):
+                                stopped_dt = datetime.fromisoformat(instance.stopped_at)
+                                stopped_time = stopped_dt.timestamp()
+                                if current_time - stopped_time > 300:  # 5 minutes
+                                    should_remove = True
                                 logger.info(f"🧹 Found old stopped instance: {instance.instance_id}")
                         
                         # Remove starting instances with no process_id (orphaned)

@@ -1,8 +1,8 @@
 """Communication package."""
 
-from .websocket.enhanced_communication import EnhancedCommunicationSystem, enhanced_communication
+# Import advanced communication features
+from .advanced_communication import AdvancedCommunication
 
 __all__ = [
-    "EnhancedCommunicationSystem",
-    "enhanced_communication"
+    "AdvancedCommunication"
 ]
