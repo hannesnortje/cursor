@@ -8,6 +8,7 @@ from .backend_tools import get_backend_tools
 from .llm_tools import get_llm_tools
 from .dashboard_tools import get_dashboard_tools
 from .phase9_1_tools import get_phase9_1_tools
+from .phase9_2_tools import get_phase9_2_tools
 
 __all__ = [
     'get_basic_tools',
@@ -17,5 +18,6 @@ __all__ = [
     'get_backend_tools',
     'get_llm_tools',
     'get_dashboard_tools',
-    'get_phase9_1_tools'
+    'get_phase9_1_tools',
+    'get_phase9_2_tools'
 ]
