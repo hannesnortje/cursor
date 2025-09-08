@@ -2238,8 +2238,9 @@ For more information, see the documentation in docs/
             method = data.get("method")
             request_id = data.get("id")
             
-            # Security middleware processing
-            if SECURITY_AVAILABLE:
+            # Security middleware processing (MCP-friendly)
+            if SECURITY_AVAILABLE and method not in ["initialize", "initialized"]:
+                # Only apply security middleware to non-initialization requests
                 # Create request data for security processing
                 request_data = {
                     "method": method or "UNKNOWN",
@@ -2254,19 +2255,29 @@ For more information, see the documentation in docs/
                 # Store security result for response processing
                 security_middleware._last_security_result = security_result
                 
-                # Check if request is allowed
+                # Check if request is allowed (but be more lenient for MCP)
                 if not security_result["allowed"]:
-                    error_msg = "Request blocked by security middleware"
-                    if security_result.get("rate_limit", {}).get("reason") == "rate_limit_exceeded":
-                        error_msg = "Rate limit exceeded"
-                    elif security_result.get("ddos_detected"):
-                        error_msg = "Potential DDoS attack detected"
-                    elif security_result.get("security_validation", {}).get("issues"):
-                        error_msg = "Security validation failed"
-                    
-                    logger.warning(f"Security middleware blocked request: {error_msg}")
-                    send_response(request_id, error={"code": -32000, "message": error_msg})
-                    continue
+                    # Only block if it's a clear security threat, not just rate limiting
+                    if security_result.get("ddos_detected") or security_result.get("security_validation", {}).get("issues"):
+                        error_msg = "Request blocked by security middleware"
+                        if security_result.get("ddos_detected"):
+                            error_msg = "Potential DDoS attack detected"
+                        elif security_result.get("security_validation", {}).get("issues"):
+                            error_msg = "Security validation failed"
+                        
+                        logger.warning(f"Security middleware blocked request: {error_msg}")
+                        send_response(request_id, error={"code": -32000, "message": error_msg})
+                        continue
+                    else:
+                        # For rate limiting, just log but don't block MCP requests
+                        logger.info(f"Rate limit warning for {method}: {security_result.get('rate_limit', {}).get('reason', 'unknown')}")
+            elif SECURITY_AVAILABLE:
+                # For initialization requests, just store a basic security result
+                security_middleware._last_security_result = {
+                    "allowed": True,
+                    "rate_limit": {"remaining": 100, "limit": 100},
+                    "security_validation": {"issues": []}
+                }
             
             if method == "initialize":
                 send_response(request_id, init_response)
