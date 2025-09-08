@@ -264,6 +264,34 @@ def get_system_tools() -> List[Dict[str, Any]]:
                 "type": "object",
                 "properties": {}
             }
+        },
+        
+        # Security Tools
+        {
+            "name": "get_security_status",
+            "description": "Get security middleware status and statistics",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "get_rate_limit_status",
+            "description": "Get rate limiting status and statistics",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "client_id": {"type": "string", "description": "Client ID to check (optional)"}
+                }
+            }
+        },
+        {
+            "name": "validate_security_headers",
+            "description": "Validate security headers configuration",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
+            }
         }
     ]
 
@@ -726,6 +754,108 @@ def handle_system_tool(tool_name: str, arguments: Dict[str, Any], request_id: st
                 send_response(request_id, error={"code": -32603, "message": result["error"]})
         except Exception as e:
             send_response(request_id, error={"code": -32603, "message": f"Error listing generated projects: {str(e)}"})
+        return True
+    
+    # Security Tools
+    elif tool_name == "get_security_status":
+        try:
+            # Import security middleware
+            try:
+                from src.security.middleware import security_middleware
+                from src.security.headers import SecurityHeaders
+                
+                # Get security statistics
+                security_stats = security_middleware.get_security_statistics()
+                
+                # Get headers validation
+                headers = SecurityHeaders()
+                headers_validation = headers.validate_headers()
+                
+                result = {
+                    "security_middleware": security_stats,
+                    "headers_validation": headers_validation,
+                    "security_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Security status retrieved successfully"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Security middleware not available"}],
+                    "structuredContent": {"security_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error getting security status: {str(e)}"})
+        return True
+    
+    elif tool_name == "get_rate_limit_status":
+        try:
+            # Import rate limiter
+            try:
+                from src.security.rate_limiting import rate_limiter
+                
+                client_id = arguments.get("client_id", "default")
+                
+                # Get rate limit statistics
+                stats = rate_limiter.get_statistics()
+                
+                # Test rate limit for client
+                test_result = rate_limiter.is_allowed(client_id, "general")
+                
+                result = {
+                    "statistics": stats,
+                    "client_test": {
+                        "client_id": client_id,
+                        "allowed": test_result["allowed"],
+                        "remaining": test_result["remaining"],
+                        "limit": test_result["limit"]
+                    },
+                    "rate_limiting_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Rate limit status for client '{client_id}' retrieved"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Rate limiting not available"}],
+                    "structuredContent": {"rate_limiting_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error getting rate limit status: {str(e)}"})
+        return True
+    
+    elif tool_name == "validate_security_headers":
+        try:
+            # Import security headers
+            try:
+                from src.security.headers import SecurityHeaders
+                
+                headers = SecurityHeaders()
+                validation_result = headers.validate_headers()
+                headers_list = headers.get_headers()
+                
+                result = {
+                    "validation": validation_result,
+                    "headers": headers_list,
+                    "headers_count": len(headers_list),
+                    "security_headers_available": True
+                }
+                
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Security headers validation completed - {len(headers_list)} headers configured"}],
+                    "structuredContent": result
+                })
+            except ImportError:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": "Security headers not available"}],
+                    "structuredContent": {"security_headers_available": False}
+                })
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error validating security headers: {str(e)}"})
         return True
     
     return False

@@ -22,6 +22,19 @@ except ImportError as e:
     logger = logging.getLogger("enhanced-mcp-server")
     logger.warning(f"Qdrant vector store not available: {e}")
 
+# Import security middleware
+try:
+    from src.security.middleware import security_middleware
+    from src.security.headers import SecurityHeaders
+    from src.security.rate_limiting import rate_limiter
+    SECURITY_AVAILABLE = True
+    logger = logging.getLogger("enhanced-mcp-server")
+    logger.info("Security middleware integration available")
+except ImportError as e:
+    SECURITY_AVAILABLE = False
+    logger = logging.getLogger("enhanced-mcp-server")
+    logger.warning(f"Security middleware not available: {e}")
+
 # Enhanced logging configuration
 logging.basicConfig(
     level=logging.INFO,
@@ -1725,7 +1738,7 @@ agent_system = AgentSystem()
 current_instance_id = None
 
 def send_response(request_id, result=None, error=None):
-    """Send a JSON-RPC response."""
+    """Send a JSON-RPC response with security headers."""
     response = {
         "jsonrpc": "2.0",
         "id": request_id
@@ -1734,6 +1747,26 @@ def send_response(request_id, result=None, error=None):
         response["error"] = error
     else:
         response["result"] = result
+    
+    # Add security metadata if security middleware is available
+    if SECURITY_AVAILABLE:
+        # Add security headers as metadata
+        security_headers = SecurityHeaders()
+        response["security_metadata"] = {
+            "headers": security_headers.get_headers(),
+            "timestamp": datetime.now().isoformat(),
+            "server": "enhanced-mcp-server"
+        }
+        
+        # Add rate limit information if available
+        if hasattr(security_middleware, '_last_security_result'):
+            last_result = security_middleware._last_security_result
+            if last_result:
+                response["security_metadata"]["rate_limit"] = {
+                    "remaining": last_result.get("rate_limit", {}).get("remaining", 0),
+                    "limit": last_result.get("rate_limit", {}).get("limit", 0),
+                    "reset_time": last_result.get("rate_limit", {}).get("reset_time", 0)
+                }
     
     print(json.dumps(response), flush=True)
 
@@ -2204,6 +2237,36 @@ For more information, see the documentation in docs/
             
             method = data.get("method")
             request_id = data.get("id")
+            
+            # Security middleware processing
+            if SECURITY_AVAILABLE:
+                # Create request data for security processing
+                request_data = {
+                    "method": method or "UNKNOWN",
+                    "path": f"/mcp/{method}" if method else "/mcp/unknown",
+                    "headers": {},  # MCP doesn't have traditional headers
+                    "body": json.dumps(data)
+                }
+                
+                # Process request through security middleware
+                security_result = security_middleware.process_request(request_data)
+                
+                # Store security result for response processing
+                security_middleware._last_security_result = security_result
+                
+                # Check if request is allowed
+                if not security_result["allowed"]:
+                    error_msg = "Request blocked by security middleware"
+                    if security_result.get("rate_limit", {}).get("reason") == "rate_limit_exceeded":
+                        error_msg = "Rate limit exceeded"
+                    elif security_result.get("ddos_detected"):
+                        error_msg = "Potential DDoS attack detected"
+                    elif security_result.get("security_validation", {}).get("issues"):
+                        error_msg = "Security validation failed"
+                    
+                    logger.warning(f"Security middleware blocked request: {error_msg}")
+                    send_response(request_id, error={"code": -32000, "message": error_msg})
+                    continue
             
             if method == "initialize":
                 send_response(request_id, init_response)

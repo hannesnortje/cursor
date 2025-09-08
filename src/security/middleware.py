@@ -1,276 +1,231 @@
 """Security middleware for AI Agent System."""
 
+import json
 import time
+import hashlib
 import logging
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+
 from .headers import SecurityHeaders
 from .rate_limiting import rate_limiter
 
 logger = logging.getLogger(__name__)
 
-
 class SecurityMiddleware:
-    """Security middleware for HTTP requests and responses."""
-    
+    """Security middleware for request processing and validation."""
+
     def __init__(self):
         """Initialize security middleware."""
         self.security_headers = SecurityHeaders()
-        self.rate_limiter = rate_limiter
         self.request_count = 0
-        self.start_time = time.time()
-        
-        # Security event logging
+        self.blocked_requests = 0
         self.security_events = []
-        self.max_events = 1000  # Keep last 1000 security events
-    
-    def process_request(self, 
-                       request_data: Dict[str, Any],
-                       client_id: str = None) -> Dict[str, Any]:
-        """
-        Process incoming request for security checks.
         
-        Args:
-            request_data: Request data dictionary
-            client_id: Client identifier for rate limiting
-            
-        Returns:
-            Dict with security processing results
-        """
-        start_time = time.time()
+        logger.info("Security middleware initialized")
+
+    def process_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process and validate a request through security middleware."""
         self.request_count += 1
         
         # Extract request information
-        method = request_data.get("method", "GET")
+        method = request_data.get("method", "UNKNOWN")
         path = request_data.get("path", "/")
         headers = request_data.get("headers", {})
         body = request_data.get("body", "")
         
-        # Generate client ID if not provided
-        if not client_id:
-            client_id = self._generate_client_id(request_data)
+        # Generate client ID from request
+        client_id = self._generate_client_id(request_data)
         
-        # Determine endpoint type for rate limiting
-        endpoint_type = self._get_endpoint_type(path, method)
-        
-        # Rate limiting check
-        rate_limit_result = self.rate_limiter.is_allowed(
-            client_id=client_id,
-            endpoint_type=endpoint_type
-        )
-        
-        # Security validation
-        security_validation = self._validate_request(request_data)
-        
-        # DDoS detection
-        ddos_detected = self.rate_limiter.is_ddos_attack(client_id)
-        
-        # Log security event
-        self._log_security_event({
-            "type": "request",
+        # Initialize result
+        result = {
+            "allowed": True,
             "client_id": client_id,
             "method": method,
             "path": path,
-            "rate_limited": not rate_limit_result["allowed"],
-            "ddos_detected": ddos_detected,
-            "security_issues": security_validation["issues"],
+            "rate_limit": {},
+            "security_validation": {"issues": []},
+            "ddos_detected": False,
             "timestamp": time.time()
-        })
-        
-        processing_time = time.time() - start_time
-        
-        return {
-            "allowed": rate_limit_result["allowed"] and not ddos_detected and security_validation["valid"],
-            "client_id": client_id,
-            "endpoint_type": endpoint_type,
-            "rate_limit": rate_limit_result,
-            "security_validation": security_validation,
-            "ddos_detected": ddos_detected,
-            "processing_time": processing_time,
-            "request_number": self.request_count
         }
-    
-    def process_response(self, 
-                        response_data: Dict[str, Any],
-                        request_info: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process outgoing response to add security headers.
         
-        Args:
-            response_data: Response data dictionary
-            request_info: Request processing information
-            
-        Returns:
-            Dict with enhanced response data
-        """
-        start_time = time.time()
+        # Rate limiting check
+        endpoint_type = self._determine_endpoint_type(path)
+        rate_limit_result = rate_limiter.is_allowed(client_id, endpoint_type)
+        result["rate_limit"] = rate_limit_result
         
-        # Get security headers
-        security_headers = self.security_headers.get_headers()
+        if not rate_limit_result["allowed"]:
+            result["allowed"] = False
+            self.blocked_requests += 1
+            self._log_security_event("rate_limit_exceeded", client_id, method, path, rate_limit_result["reason"])
+            return result
         
-        # Add rate limit headers
-        rate_limit_headers = self.rate_limiter.get_rate_limit_headers(
-            client_id=request_info.get("client_id", "unknown"),
-            endpoint_type=request_info.get("endpoint_type", "general")
-        )
+        # Security validation
+        security_issues = self._validate_request_security(method, path, headers, body)
+        result["security_validation"]["issues"] = security_issues
         
-        # Add response time header
-        response_time = time.time() - start_time
-        security_headers["X-Response-Time"] = f"{response_time:.3f}s"
+        if security_issues:
+            result["allowed"] = False
+            self.blocked_requests += 1
+            self._log_security_event("security_validation_failed", client_id, method, path, security_issues[0])
+            return result
         
-        # Combine all headers
-        all_headers = {**security_headers, **rate_limit_headers}
+        # DDoS detection
+        if self._detect_ddos(client_id):
+            result["ddos_detected"] = True
+            result["allowed"] = False
+            self.blocked_requests += 1
+            self._log_security_event("ddos_detected", client_id, method, path, "Potential DDoS attack")
+            return result
         
-        # Update response data
-        response_data["headers"] = {**response_data.get("headers", {}), **all_headers}
+        # Log successful request
+        self._log_security_event("request", client_id, method, path, "Request processed successfully")
         
-        # Log response security event
-        self._log_security_event({
-            "type": "response",
-            "client_id": request_info.get("client_id"),
-            "status_code": response_data.get("status_code", 200),
-            "response_time": response_time,
-            "headers_added": len(all_headers),
-            "timestamp": time.time()
-        })
-        
-        return response_data
-    
+        return result
+
     def _generate_client_id(self, request_data: Dict[str, Any]) -> str:
         """Generate a client ID from request data."""
+        # Use a combination of headers and IP-like information
         headers = request_data.get("headers", {})
-        
-        # Try to get client IP from various headers
-        client_ip = (
-            headers.get("X-Forwarded-For", "").split(",")[0].strip() or
-            headers.get("X-Real-IP", "") or
-            headers.get("Remote-Addr", "") or
-            "unknown"
-        )
-        
-        # Add user agent for additional uniqueness
         user_agent = headers.get("User-Agent", "unknown")
+        method = request_data.get("method", "unknown")
+        path = request_data.get("path", "/")
         
-        # Create a simple hash-based ID
-        import hashlib
-        client_string = f"{client_ip}:{user_agent}"
-        client_id = hashlib.md5(client_string.encode()).hexdigest()[:16]
-        
-        return client_id
-    
-    def _get_endpoint_type(self, path: str, method: str) -> str:
+        # Create a hash for client identification
+        client_string = f"{user_agent}:{method}:{path}"
+        return hashlib.md5(client_string.encode()).hexdigest()[:16]
+
+    def _determine_endpoint_type(self, path: str) -> str:
         """Determine endpoint type for rate limiting."""
-        path_lower = path.lower()
-        
-        if "/mcp/" in path_lower or "mcp" in path_lower:
+        if "/mcp/" in path or "tools/" in path:
             return "mcp_tools"
-        elif "/auth" in path_lower or "/login" in path_lower:
+        elif "/auth/" in path or "/login" in path:
             return "authentication"
-        elif "/files" in path_lower or "/upload" in path_lower:
-            return "file_operations"
-        elif "/api/" in path_lower:
-            return "api_endpoints"
         else:
             return "general"
-    
-    def _validate_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _validate_request_security(self, method: str, path: str, headers: Dict[str, str], body: str) -> List[str]:
         """Validate request for security issues."""
         issues = []
-        warnings = []
         
-        headers = request_data.get("headers", {})
-        body = request_data.get("body", "")
-        path = request_data.get("path", "")
-        
-        # Check for suspicious headers
-        suspicious_headers = [
-            "X-Forwarded-Host",
-            "X-Original-URL",
-            "X-Rewrite-URL"
-        ]
-        
-        for header in suspicious_headers:
-            if header in headers:
-                warnings.append(f"Suspicious header detected: {header}")
-        
-        # Check for path traversal attempts
-        if ".." in path or "~" in path:
-            issues.append("Path traversal attempt detected")
-        
-        # Check for SQL injection patterns in body
-        sql_patterns = ["'", '"', ";", "--", "/*", "*/", "xp_", "sp_"]
-        if any(pattern in str(body).lower() for pattern in sql_patterns):
-            warnings.append("Potential SQL injection pattern detected")
-        
-        # Check for XSS patterns
-        xss_patterns = ["<script", "javascript:", "onload=", "onerror="]
-        if any(pattern in str(body).lower() for pattern in xss_patterns):
+        # Check for XSS attempts
+        if self._detect_xss(body):
             issues.append("Potential XSS attack detected")
         
-        # Check request size
-        body_size = len(str(body))
-        if body_size > 10 * 1024 * 1024:  # 10MB limit
+        # Check for SQL injection attempts
+        if self._detect_sql_injection(body):
+            issues.append("Potential SQL injection attack detected")
+        
+        # Check for path traversal attempts
+        if self._detect_path_traversal(path):
+            issues.append("Path traversal attempt detected")
+        
+        # Check for large request body
+        if len(body) > 10 * 1024 * 1024:  # 10MB limit
             issues.append("Request body too large")
         
-        return {
-            "valid": len(issues) == 0,
-            "issues": issues,
-            "warnings": warnings,
-            "body_size": body_size
+        return issues
+
+    def _detect_xss(self, content: str) -> bool:
+        """Detect potential XSS attacks."""
+        xss_patterns = [
+            "<script",
+            "javascript:",
+            "onload=",
+            "onerror=",
+            "onclick=",
+            "onmouseover=",
+            "vbscript:",
+            "data:text/html"
+        ]
+        
+        content_lower = content.lower()
+        return any(pattern in content_lower for pattern in xss_patterns)
+
+    def _detect_sql_injection(self, content: str) -> bool:
+        """Detect potential SQL injection attacks."""
+        sql_patterns = [
+            "union select",
+            "drop table",
+            "delete from",
+            "insert into",
+            "update set",
+            "or 1=1",
+            "and 1=1",
+            "' or '",
+            "\" or \"",
+            "'; --",
+            "\"; --"
+        ]
+        
+        content_lower = content.lower()
+        return any(pattern in content_lower for pattern in sql_patterns)
+
+    def _detect_path_traversal(self, path: str) -> bool:
+        """Detect path traversal attempts."""
+        traversal_patterns = [
+            "../",
+            "..\\",
+            "/etc/passwd",
+            "/etc/shadow",
+            "windows/system32",
+            "boot.ini"
+        ]
+        
+        return any(pattern in path for pattern in traversal_patterns)
+
+    def _detect_ddos(self, client_id: str) -> bool:
+        """Detect potential DDoS attacks."""
+        # Simple DDoS detection based on request frequency
+        # In a real implementation, this would be more sophisticated
+        
+        # Check if client has made too many requests recently
+        recent_requests = [
+            event for event in self.security_events
+            if event.get("client_id") == client_id and 
+            time.time() - event.get("timestamp", 0) < 60  # Last minute
+        ]
+        
+        return len(recent_requests) > 100  # More than 100 requests per minute
+
+    def _log_security_event(self, event_type: str, client_id: str, method: str, path: str, description: str):
+        """Log a security event."""
+        event = {
+            "type": event_type,
+            "client_id": client_id,
+            "method": method,
+            "path": path,
+            "description": description,
+            "timestamp": time.time(),
+            "datetime": datetime.now().isoformat()
         }
-    
-    def _log_security_event(self, event: Dict[str, Any]):
-        """Log security event."""
+        
         self.security_events.append(event)
         
-        # Keep only recent events
-        if len(self.security_events) > self.max_events:
-            self.security_events = self.security_events[-self.max_events:]
+        # Keep only last 1000 events
+        if len(self.security_events) > 1000:
+            self.security_events = self.security_events[-1000:]
         
-        # Log to logger if it's a security issue
-        if event.get("type") == "request" and (
-            event.get("rate_limited") or 
-            event.get("ddos_detected") or 
-            event.get("security_issues")
-        ):
+        # Log based on event type
+        if event_type in ["rate_limit_exceeded", "security_validation_failed", "ddos_detected"]:
             logger.warning(f"Security event: {event}")
-    
+        else:
+            logger.info(f"Security event: {event}")
+
     def get_security_statistics(self) -> Dict[str, Any]:
         """Get security middleware statistics."""
-        uptime = time.time() - self.start_time
-        
-        # Count security events by type
-        event_counts = {}
-        for event in self.security_events:
-            event_type = event.get("type", "unknown")
-            event_counts[event_type] = event_counts.get(event_type, 0) + 1
-        
-        # Count security issues
-        security_issues = sum(1 for event in self.security_events 
-                            if event.get("rate_limited") or 
-                               event.get("ddos_detected") or 
-                               event.get("security_issues"))
-        
         return {
-            "uptime_seconds": uptime,
             "total_requests": self.request_count,
-            "requests_per_second": self.request_count / uptime if uptime > 0 else 0,
+            "blocked_requests": self.blocked_requests,
+            "success_rate": (self.request_count - self.blocked_requests) / max(self.request_count, 1) * 100,
             "security_events": len(self.security_events),
-            "security_issues": security_issues,
-            "event_counts": event_counts,
-            "rate_limiter_stats": self.rate_limiter.get_statistics(),
-            "headers_validation": self.security_headers.validate_headers()
+            "recent_events": self.security_events[-10:] if self.security_events else [],
+            "headers_configured": len(self.security_headers.get_headers())
         }
-    
-    def cleanup(self):
-        """Clean up middleware resources."""
-        self.rate_limiter.cleanup_old_windows()
-        
-        # Clear old security events
-        current_time = time.time()
-        self.security_events = [
-            event for event in self.security_events
-            if current_time - event.get("timestamp", 0) < 3600  # Keep last hour
-        ]
+
+    def get_security_headers(self) -> Dict[str, str]:
+        """Get security headers."""
+        return self.security_headers.get_headers()
 
 
 # Global security middleware instance
