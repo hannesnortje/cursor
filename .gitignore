@@ -70,3 +70,7 @@ logs/
 .env.test.local
 .env.production.local
 qdrant_storage/
+# Large model files
+models/*.gguf
+models/*.bin
+models/*.safetensors
