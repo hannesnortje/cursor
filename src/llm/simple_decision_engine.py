@@ -231,7 +231,7 @@ Respond with just the action name:"""
                         "max_tokens": 20
                     }
                 },
-                timeout=15
+                timeout=60
             )
             
             if response.status_code == 200:

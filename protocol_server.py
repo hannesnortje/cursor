@@ -399,11 +399,37 @@ class AgentSystem:
             }
     
     def chat_with_coordinator(self, message: str) -> Dict[str, Any]:
-        """Handle communication with Coordinator Agent."""
+        """Handle communication with LLM-based Coordinator Agent."""
         try:
             logger.info(f"Coordinator chat message: {message}")
             
-            # Handle natural language conversation for PDCA planning
+            # Get the LLM-based coordinator
+            coordinator_agent = self._get_or_create_coordinator_agent()
+            
+            # Use the LLM-based coordinator for all natural language messages
+            if not message.strip().startswith('{'):
+                logger.info("Using LLM-based coordinator for natural language message")
+                try:
+                    response = coordinator_agent.process_message(message)
+                    return {
+                        "success": True,
+                        "response": response.get("response", "I'm processing your request..."),
+                        "phase": response.get("phase", "plan"),
+                        "next_steps": response.get("next_steps", "awaiting_input"),
+                        "timestamp": response.get("timestamp", datetime.now().isoformat()),
+                        "coordinator_status": "active",
+                        "llm_enabled": True
+                    }
+                except Exception as e:
+                    logger.error(f"LLM coordinator error: {e}")
+                    return {
+                        "success": False,
+                        "error": f"Coordinator processing error: {str(e)}",
+                        "coordinator_status": "error",
+                        "llm_enabled": True
+                    }
+            
+            # Handle legacy JSON messages for backwards compatibility
             if self._is_pdca_planning_message(message):
                 return self._handle_pdca_planning(message)
             
@@ -1357,21 +1383,21 @@ What would you like to work on?""",
             raise
     
     def _get_or_create_coordinator_agent(self):
-        """Get or create a Coordinator Agent instance."""
+        """Get or create a Simple Coordinator Agent instance with LLM decision engine."""
         # Check if we already have a Coordinator Agent
         for agent in self.agents.values():
-            if hasattr(agent, 'name') and agent.name == "System Coordinator":
+            if hasattr(agent, 'name') and agent.name == "Simple Coordinator":
                 return agent
         
-        # Create new Coordinator Agent if none exists
+        # Create new Simple Coordinator Agent if none exists
         try:
-            from src.agents.coordinator.coordinator_agent import CoordinatorAgent
-            coordinator_agent = CoordinatorAgent()
+            from src.agents.coordinator.simple_coordinator_agent import SimpleCoordinatorAgent
+            coordinator_agent = SimpleCoordinatorAgent()
             self.register_agent(coordinator_agent)
-            logger.info("Created new Coordinator Agent")
+            logger.info("Created new Simple Coordinator Agent with LLM decision engine")
             return coordinator_agent
         except ImportError as e:
-            logger.error(f"Could not import CoordinatorAgent: {e}")
+            logger.error(f"Could not import SimpleCoordinatorAgent: {e}")
             raise
 
     def _get_or_create_agile_agent(self):
