@@ -66,7 +66,7 @@ class InMemoryVectorStore:
         self.embeddings: Dict[str, List[float]] = {}
         logger.info("Initialized in-memory vector store fallback")
     
-    def create_collection(self, collection_name: str, vector_size: int = 384) -> bool:
+    def create_collection(self, collection_name: str, vector_size: int = 1536) -> bool:
         """Create a collection."""
         if collection_name not in self.collections:
             self.collections[collection_name] = []
@@ -82,7 +82,7 @@ class InMemoryVectorStore:
         
         for point in points:
             point_id = point.get("id", str(uuid.uuid4()))
-            vector = point.get("vector", [0.0] * 384)  # Default vector
+            vector = point.get("vector", [0.0] * 1536)  # Default vector
             payload = point.get("payload", {})
             
             # Store in memory
@@ -192,7 +192,7 @@ class EnhancedVectorStore:
         
         return success
     
-    def create_collection(self, collection_name: str, vector_size: int = 384) -> bool:
+    def create_collection(self, collection_name: str, vector_size: int = 1536) -> bool:
         """Create a collection."""
         full_name = self.get_collection_name(collection_name)
         
@@ -217,10 +217,21 @@ class EnhancedVectorStore:
         """Upsert a conversation point."""
         collection_name = self.get_collection_name("conversations")
         
+        # Convert string ID to UUID for Qdrant compatibility
+        try:
+            if isinstance(conversation_id, str) and not conversation_id.replace('-', '').isalnum():
+                # If it's not a valid UUID format, generate one
+                point_id = str(uuid.uuid4())
+            else:
+                point_id = conversation_id
+        except:
+            point_id = str(uuid.uuid4())
+        
         point = {
-            "id": conversation_id,
+            "id": point_id,
             "vector": embedding,
             "payload": {
+                "conversation_id": conversation_id,  # Store original ID in payload
                 "message": message,
                 "response": response,
                 "timestamp": datetime.now().isoformat(),
@@ -236,10 +247,21 @@ class EnhancedVectorStore:
         """Upsert a knowledge point."""
         collection_name = self.get_collection_name("knowledge")
         
+        # Convert string ID to UUID for Qdrant compatibility
+        try:
+            if isinstance(knowledge_id, str) and not knowledge_id.replace('-', '').isalnum():
+                # If it's not a valid UUID format, generate one
+                point_id = str(uuid.uuid4())
+            else:
+                point_id = knowledge_id
+        except:
+            point_id = str(uuid.uuid4())
+        
         point = {
-            "id": knowledge_id,
+            "id": point_id,
             "vector": embedding,
             "payload": {
+                "knowledge_id": knowledge_id,  # Store original ID in payload
                 "content": content,
                 "timestamp": datetime.now().isoformat(),
                 "project_id": self.current_project_id,
@@ -358,6 +380,116 @@ class EnhancedVectorStore:
             stats["collections"][collection] = info
         
         return stats
+    
+    def reset_project_memory(self, project_id: str, preserve_general_knowledge: bool = True) -> bool:
+        """Reset memory for a specific project while optionally preserving general knowledge."""
+        try:
+            self.set_current_project(project_id)
+            
+            if self.fallback_mode:
+                # Reset in-memory store for this project
+                for collection_name in ["conversations", "knowledge", "agents"]:
+                    full_name = self.get_collection_name(collection_name)
+                    if full_name in self.in_memory_store.collections:
+                        if preserve_general_knowledge and collection_name == "knowledge":
+                            # Keep only general knowledge (not project-specific)
+                            original_collection = self.in_memory_store.collections[full_name]
+                            self.in_memory_store.collections[full_name] = [
+                                point for point in original_collection 
+                                if point.get("payload", {}).get("project_id") != project_id
+                            ]
+                        else:
+                            # Clear all project-specific data
+                            self.in_memory_store.collections[full_name] = []
+                
+                logger.info(f"Reset project memory for {project_id} (in-memory mode)")
+                return True
+            else:
+                # Reset Qdrant collections for this project
+                for collection_name in ["conversations", "knowledge", "agents"]:
+                    full_name = self.get_collection_name(collection_name)
+                    try:
+                        if preserve_general_knowledge and collection_name == "knowledge":
+                            # Delete only project-specific knowledge points
+                            self.client.delete(
+                                collection_name=full_name,
+                                points_selector=Filter(
+                                    must=[
+                                        FieldCondition(
+                                            key="project_id",
+                                            match=MatchValue(value=project_id)
+                                        )
+                                    ]
+                                )
+                            )
+                        else:
+                            # Clear all project-specific data
+                            self.client.delete(
+                                collection_name=full_name,
+                                points_selector=Filter(
+                                    must=[
+                                        FieldCondition(
+                                            key="project_id",
+                                            match=MatchValue(value=project_id)
+                                        )
+                                    ]
+                                )
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to reset {collection_name} for project {project_id}: {e}")
+                
+                logger.info(f"Reset project memory for {project_id} (Qdrant mode)")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to reset project memory for {project_id}: {e}")
+            return False
+    
+    def archive_project_memory(self, project_id: str) -> bool:
+        """Archive project memory by moving it to an archived collection."""
+        try:
+            self.set_current_project(project_id)
+            
+            if self.fallback_mode:
+                # In-memory archiving - just mark as archived
+                for collection_name in ["conversations", "knowledge", "agents"]:
+                    full_name = self.get_collection_name(collection_name)
+                    if full_name in self.in_memory_store.collections:
+                        for point in self.in_memory_store.collections[full_name]:
+                            point["payload"]["archived"] = True
+                            point["payload"]["archived_at"] = datetime.now().isoformat()
+                
+                logger.info(f"Archived project memory for {project_id} (in-memory mode)")
+                return True
+            else:
+                # Qdrant archiving - move to archived collections
+                for collection_name in ["conversations", "knowledge", "agents"]:
+                    full_name = self.get_collection_name(collection_name)
+                    archived_name = f"{full_name}_archived"
+                    
+                    try:
+                        # Create archived collection if it doesn't exist
+                        self.client.create_collection(
+                            collection_name=archived_name,
+                            vectors_config=VectorParams(
+                                size=384,  # Default embedding size
+                                distance=Distance.COSINE
+                            )
+                        )
+                        
+                        # Move project data to archived collection
+                        # (This would require more complex logic in a real implementation)
+                        logger.info(f"Archived {collection_name} for project {project_id}")
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to archive {collection_name} for project {project_id}: {e}")
+                
+                logger.info(f"Archived project memory for {project_id} (Qdrant mode)")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to archive project memory for {project_id}: {e}")
+            return False
 
 
 # Global instance

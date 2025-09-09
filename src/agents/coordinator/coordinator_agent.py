@@ -183,26 +183,233 @@ class CoordinatorAgent(BaseAgent):
                           description: str, capabilities: List[str]) -> Dict[str, Any]:
         """Create a new agent of the specified type."""
         try:
-            # This would typically create specialized agents
-            # For now, we'll return a mock response
+            # Create agent ID
             agent_id = f"agent_{agent_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
+            # Store agent info
             agent_info = {
                 "agent_id": agent_id,
                 "agent_type": agent_type,
                 "name": name,
                 "description": description,
                 "capabilities": capabilities,
-                "status": "created",
+                "status": "active",
                 "created_at": datetime.now().isoformat()
             }
             
+            # Add to active agents list
+            if not hasattr(self, 'active_agents'):
+                self.active_agents = []
+            self.active_agents.append(agent_info)
+            
             self.logger.info(f"Created agent: {name} ({agent_type})")
-            return agent_info
+            
+            return {
+                "success": True,
+                "agent_info": agent_info,
+                "message": f"✅ {name} created successfully"
+            }
             
         except Exception as e:
             self.logger.error(f"Failed to create agent {name}: {e}")
-            return {"error": str(e)}
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"❌ Failed to create {name}"
+            }
+    
+    def start_pdca_planning(self, message: str) -> Dict[str, Any]:
+        """Start PDCA planning conversation with the user."""
+        try:
+            # Analyze the message to understand the project request
+            message_lower = message.lower()
+            
+            # Check if this is a new project request
+            if any(word in message_lower for word in ["start", "create", "build", "develop", "new project"]):
+                return {
+                    "success": True,
+                    "response": """🎯 Starting PDCA Framework for your project!
+
+📋 PLAN Phase - Let me gather the essential information:
+
+1. **Project Goals & Objectives:**
+   - What is the main purpose of this project?
+   - Who are the target users?
+   - What key features do you want to include?
+
+2. **Current State Analysis:**
+   - What existing solutions or platforms are you building upon?
+   - What are the main challenges you're trying to solve?
+
+3. **Target State Definition:**
+   - What does success look like for this project?
+   - What specific outcomes do you want to achieve?
+
+4. **Implementation Strategy:**
+   - What is your preferred timeline?
+   - Do you have any specific technical requirements?
+   - What's your team size and expertise?
+
+Please share your thoughts on these questions, and I'll guide you through the planning process.""",
+                    "phase": "plan",
+                    "next_steps": "awaiting_project_details",
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": True,
+                    "response": "I'd be happy to help you with your project! Could you tell me more about what you'd like to build or work on?",
+                    "phase": "plan",
+                    "next_steps": "awaiting_project_details",
+                    "timestamp": datetime.now().isoformat()
+                }
+        except Exception as e:
+            self.logger.error(f"Error in start_pdca_planning: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "response": "I encountered an error while starting the PDCA planning. Let me try a different approach."
+            }
+    
+    def continue_pdca_planning(self, message: str) -> Dict[str, Any]:
+        """Continue PDCA planning based on user input."""
+        try:
+            # Analyze the message to understand what information the user is providing
+            message_lower = message.lower()
+            
+            # Check if user wants to create agents (prioritize this check)
+            if any(phrase in message_lower for phrase in ["create agents", "let's create", "please create", "specialized agents", "agent team", "create the", "create an agile", "create a frontend", "create a backend", "create a testing"]):
+                return self._handle_agent_creation_request(message)
+            
+            # Check if user is providing project details
+            elif any(word in message_lower for word in ["purpose", "goal", "objective", "dashboard", "react", "typescript", "vue", "project management", "web application"]):
+                return {
+                    "success": True,
+                    "response": """✅ Thank you for the project information! Now let's discuss the **implementation process** and **agent strategy**:
+
+🤖 **Proposed Core Agents:**
+- **Agile/Scrum Agent**: Sprint planning, user stories, retrospectives
+- **Frontend Agent**: Vue.js/TypeScript components, UI/UX
+- **Backend Agent**: Node.js/Express API development, database design
+- **Testing Agent**: Test strategies, coverage, automation
+- **Documentation Agent**: Project docs, API documentation
+
+🔧 **Specialized Agents to Consider:**
+- **Git Agent**: Branch management, commit strategies, conflict resolution
+- **Logging Agent**: Application logging, monitoring, debugging
+- **Security Agent**: Security reviews, vulnerability scanning
+- **Performance Agent**: Performance optimization, monitoring
+- **Deployment Agent**: CI/CD, deployment automation
+
+💭 **Questions for You:**
+1. Which specialized agents would be most valuable for your project?
+2. Do you have any specific workflows or processes you'd like automated?
+3. Any particular areas where you'd like extra support (logging, git management, etc.)?
+4. How would you like the agents to collaborate and communicate?
+
+Let's discuss this together and customize the agent team for your specific needs!""",
+                    "phase": "plan",
+                    "next_steps": "agent_strategy_discussion",
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": True,
+                    "response": "Thank you for that information! Could you provide more details about your project goals and requirements?",
+                    "phase": "plan",
+                    "next_steps": "awaiting_project_details",
+                    "timestamp": datetime.now().isoformat()
+                }
+        except Exception as e:
+            self.logger.error(f"Error in continue_pdca_planning: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "response": "I encountered an error while continuing the PDCA planning. Let me try a different approach."
+            }
+    
+    def _handle_agent_creation_request(self, message: str) -> Dict[str, Any]:
+        """Handle requests to create specialized agents."""
+        try:
+            # Create the core agents for the project
+            agents_created = []
+            
+            # Create Agile Agent
+            agile_result = asyncio.run(self.create_agent(
+                agent_type="agile",
+                name="Agile/Scrum Agent",
+                description="Sprint planning, user stories, retrospectives",
+                capabilities=["sprint_planning", "user_stories", "retrospectives", "velocity_tracking"]
+            ))
+            if agile_result.get("success"):
+                agents_created.append(agile_result["agent_info"])
+            
+            # Create Frontend Agent
+            frontend_result = asyncio.run(self.create_agent(
+                agent_type="frontend",
+                name="Frontend Agent",
+                description="Vue.js/TypeScript components, UI/UX development",
+                capabilities=["vue_development", "typescript", "ui_ux", "component_design"]
+            ))
+            if frontend_result.get("success"):
+                agents_created.append(frontend_result["agent_info"])
+            
+            # Create Backend Agent
+            backend_result = asyncio.run(self.create_agent(
+                agent_type="backend",
+                name="Backend Agent",
+                description="Node.js/Express API development, database design",
+                capabilities=["nodejs", "express", "api_development", "database_design"]
+            ))
+            if backend_result.get("success"):
+                agents_created.append(backend_result["agent_info"])
+            
+            # Create Testing Agent
+            testing_result = asyncio.run(self.create_agent(
+                agent_type="testing",
+                name="Testing Agent",
+                description="Test strategies, coverage, automation",
+                capabilities=["test_planning", "test_automation", "coverage_analysis", "quality_assurance"]
+            ))
+            if testing_result.get("success"):
+                agents_created.append(testing_result["agent_info"])
+            
+            return {
+                "success": True,
+                "response": f"""🎉 **Agent Team Created Successfully!**
+
+✅ **Core Agents Created ({len(agents_created)} agents):**
+- **Agile/Scrum Agent**: Ready for sprint planning and user story management
+- **Frontend Agent**: Ready for Vue.js/TypeScript development
+- **Backend Agent**: Ready for Node.js/Express API development  
+- **Testing Agent**: Ready for test strategies and automation
+
+📋 **Next Steps:**
+1. **Sprint Planning**: Agile Agent will create the first sprint plan
+2. **Architecture Design**: Backend Agent will design the API structure
+3. **UI/UX Planning**: Frontend Agent will plan the component architecture
+4. **Test Strategy**: Testing Agent will create the testing framework
+
+🚀 **Ready to start development!** The agent team is now active and ready to collaborate on your project management system.
+
+Would you like me to:
+- Start sprint planning with the Agile Agent?
+- Begin architecture design with the Backend Agent?
+- Plan the UI/UX with the Frontend Agent?
+- Set up the testing framework with the Testing Agent?""",
+                "phase": "do",
+                "next_steps": "agent_collaboration",
+                "agents_created": len(agents_created),
+                "agent_details": agents_created,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            self.logger.error(f"Error creating agents: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "response": "I encountered an error while creating the agent team. Let me try a different approach."
+            }
     
     async def assign_task_to_agent(self, task_description: str, 
                                   preferred_agent_type: Optional[str] = None,

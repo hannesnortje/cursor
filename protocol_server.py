@@ -360,10 +360,16 @@ class AgentSystem:
                     # Store in vector database (async)
                     def store_project_context():
                         try:
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            loop.run_until_complete(
-                                self.vector_store.store_project_context(project_context)
+                            # Set current project and create collections
+                            self.vector_store.set_current_project(project_id)
+                            self.vector_store.create_project_collections(project_id)
+                            
+                            # Store project context as knowledge
+                            self.vector_store.upsert_knowledge(
+                                knowledge_id=f"proj_{project_id}",
+                                content=project_context.content,
+                                embedding=[0.0] * 1536,  # Default embedding
+                                metadata=project_context.metadata
                             )
                             logger.info(f"Project context stored in vector database: {project_id}")
                         except Exception as e:
@@ -495,6 +501,27 @@ class AgentSystem:
                             "timestamp": datetime.now().isoformat(),
                             "coordinator_status": "active"
                         }
+                    elif action == "reset_project_memory":
+                        result = self.reset_project_memory(
+                            message_data.get("project_id"),
+                            message_data.get("preserve_general_knowledge", True)
+                        )
+                        return {
+                            "success": result["success"],
+                            "response": result.get("message", "Memory reset completed"),
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
+                    elif action == "archive_project_memory":
+                        result = self.archive_project_memory(message_data.get("project_id"))
+                        return {
+                            "success": result["success"],
+                            "response": result.get("message", "Memory archived"),
+                            "data": result,
+                            "timestamp": datetime.now().isoformat(),
+                            "coordinator_status": "active"
+                        }
                     else:
                         return {
                             "success": False,
@@ -547,7 +574,7 @@ class AgentSystem:
         """Check if message is related to PDCA planning."""
         pdca_keywords = [
             "plan", "planning", "pdca", "project", "dashboard", "react", "typescript",
-            "start", "create", "build", "develop", "purpose", "goals", "objectives",
+            "start", "build", "develop", "purpose", "goals", "objectives",
             "requirements", "scope", "timeline", "strategy", "implementation"
         ]
         message_lower = message.lower()
@@ -559,11 +586,15 @@ class AgentSystem:
             message_lower = message.lower()
             
             # Check if this is an initial project request
-            if any(word in message_lower for word in ["start", "create", "build", "develop", "new project"]):
+            if any(word in message_lower for word in ["start", "build", "develop", "new project"]):
                 return self._start_pdca_planning_phase(message)
             
+            # Check if user wants to create agents (prioritize this check)
+            elif any(phrase in message_lower for phrase in ["create agents", "let's create", "please create", "specialized agents", "agent team", "create the", "create an agile", "create a frontend", "create a backend", "create a testing"]):
+                return self._continue_pdca_planning(message)
+            
             # Check if user is providing project details
-            elif any(word in message_lower for word in ["purpose", "goal", "objective", "dashboard", "react", "typescript"]):
+            elif any(word in message_lower for word in ["purpose", "goal", "objective", "dashboard", "react", "typescript", "vue", "project management", "web application"]):
                 return self._continue_pdca_planning(message)
             
             # Default PDCA response
@@ -578,70 +609,56 @@ class AgentSystem:
             }
     
     def _start_pdca_planning_phase(self, message: str) -> Dict[str, Any]:
-        """Start the PDCA planning phase."""
-        return {
-            "success": True,
-            "response": """🎯 Starting PDCA Framework for your project!
-
-📋 PLAN Phase - Let me gather the essential information:
-
-1. **Project Goals & Objectives:**
-   - What is the main purpose of this project?
-   - Who are the target users?
-   - What key features do you want to include?
-
-2. **Current State Analysis:**
-   - What existing solutions or platforms are you building upon?
-   - What are the main challenges you're trying to solve?
-
-3. **Target State Definition:**
-   - What does success look like for this project?
-   - What specific outcomes do you want to achieve?
-
-4. **Implementation Strategy:**
-   - What is your preferred timeline?
-   - Do you have any specific technical requirements?
-   - What's your team size and expertise?
-
-Please share your thoughts on these questions, and I'll guide you through the planning process.""",
-            "timestamp": datetime.now().isoformat(),
-            "coordinator_status": "active",
-            "pdca_phase": "plan",
-            "next_steps": "awaiting_project_details"
-        }
+        """Start the PDCA planning phase using the actual Coordinator Agent."""
+        try:
+            # Get or create the Coordinator Agent
+            coordinator_agent = self._get_or_create_coordinator_agent()
+            
+            # Use the Coordinator Agent to handle PDCA planning
+            result = coordinator_agent.start_pdca_planning(message)
+            
+            return {
+                "success": True,
+                "response": result.get("response", "Starting PDCA planning..."),
+                "timestamp": datetime.now().isoformat(),
+                "coordinator_status": "active",
+                "pdca_phase": result.get("phase", "plan"),
+                "next_steps": result.get("next_steps", "awaiting_project_details"),
+                "data": result
+            }
+        except Exception as e:
+            logger.error(f"Error in PDCA planning phase: {e}")
+            return {
+                "success": False,
+                "error": f"PDCA planning error: {str(e)}",
+                "response": "I encountered an error while starting the PDCA planning. Let me try a different approach."
+            }
     
     def _continue_pdca_planning(self, message: str) -> Dict[str, Any]:
-        """Continue PDCA planning based on user input."""
-        return {
-            "success": True,
-            "response": """✅ Thank you for the project information! Now let's discuss the **implementation process** and **agent strategy**:
-
-🤖 **Proposed Core Agents:**
-- **Agile/Scrum Agent**: Sprint planning, user stories, retrospectives
-- **Frontend Agent**: React/TypeScript components, UI/UX
-- **Backend Agent**: API development, database design
-- **Testing Agent**: Test strategies, coverage, automation
-- **Documentation Agent**: Project docs, API documentation
-
-🔧 **Specialized Agents to Consider:**
-- **Git Agent**: Branch management, commit strategies, conflict resolution
-- **Logging Agent**: Application logging, monitoring, debugging
-- **Security Agent**: Security reviews, vulnerability scanning
-- **Performance Agent**: Performance optimization, monitoring
-- **Deployment Agent**: CI/CD, deployment automation
-
-💭 **Questions for You:**
-1. Which specialized agents would be most valuable for your project?
-2. Do you have any specific workflows or processes you'd like automated?
-3. Any particular areas where you'd like extra support (logging, git management, etc.)?
-4. How would you like the agents to collaborate and communicate?
-
-Let's discuss this together and customize the agent team for your specific needs!""",
-            "timestamp": datetime.now().isoformat(),
-            "coordinator_status": "active",
-            "pdca_phase": "plan",
-            "next_steps": "agent_strategy_discussion"
-        }
+        """Continue PDCA planning based on user input using the actual Coordinator Agent."""
+        try:
+            # Get or create the Coordinator Agent
+            coordinator_agent = self._get_or_create_coordinator_agent()
+            
+            # Use the Coordinator Agent to continue PDCA planning
+            result = coordinator_agent.continue_pdca_planning(message)
+            
+            return {
+                "success": True,
+                "response": result.get("response", "Continuing PDCA planning..."),
+                "timestamp": datetime.now().isoformat(),
+                "coordinator_status": "active",
+                "pdca_phase": result.get("phase", "plan"),
+                "next_steps": result.get("next_steps", "agent_strategy_discussion"),
+                "data": result
+            }
+        except Exception as e:
+            logger.error(f"Error in continuing PDCA planning: {e}")
+            return {
+                "success": False,
+                "error": f"PDCA planning error: {str(e)}",
+                "response": "I encountered an error while continuing the PDCA planning. Let me try a different approach."
+            }
     
     def _provide_pdca_guidance(self, message: str) -> Dict[str, Any]:
         """Provide general PDCA guidance."""
@@ -757,8 +774,13 @@ What would you like to work on?""",
                         try:
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
-                            loop.run_until_complete(
-                                self.vector_store.store_conversation(conversation_point)
+                            # Convert ConversationPoint to the format expected by upsert_conversation
+                            self.vector_store.upsert_conversation(
+                                conversation_id=conversation_point.id,
+                                message=conversation_point.message,
+                                response=conversation_point.context,
+                                embedding=conversation_point.vector or [0.0] * 1536,
+                                metadata=conversation_point.metadata
                             )
                             logger.info(f"Message stored in vector database: {message_data['message_id']}")
                         except Exception as e:
@@ -1148,6 +1170,49 @@ What would you like to work on?""",
             return project_gen_agent.get_project_status(project_id)
         except Exception as e:
             logger.error(f"Error getting generated project status: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def reset_project_memory(self, project_id: str, preserve_general_knowledge: bool = True) -> Dict[str, Any]:
+        """Reset memory for a specific project while preserving general knowledge."""
+        try:
+            if not self.vector_store:
+                return {"success": False, "error": "Vector store not available"}
+            
+            success = self.vector_store.reset_project_memory(project_id, preserve_general_knowledge)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Project memory reset for {project_id}",
+                    "preserved_general_knowledge": preserve_general_knowledge,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {"success": False, "error": "Failed to reset project memory"}
+                
+        except Exception as e:
+            logger.error(f"Error resetting project memory: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def archive_project_memory(self, project_id: str) -> Dict[str, Any]:
+        """Archive project memory for long-term storage."""
+        try:
+            if not self.vector_store:
+                return {"success": False, "error": "Vector store not available"}
+            
+            success = self.vector_store.archive_project_memory(project_id)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": f"Project memory archived for {project_id}",
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {"success": False, "error": "Failed to archive project memory"}
+                
+        except Exception as e:
+            logger.error(f"Error archiving project memory: {e}")
             return {"success": False, "error": str(e)}
 
     def create_custom_project(self, project_name: str, language: str, 
@@ -2034,6 +2099,29 @@ For more information, see the documentation in docs/
                         }
                     },
                     {
+                        "name": "reset_project_memory",
+                        "description": "Reset memory for a specific project while preserving general knowledge",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string"},
+                                "preserve_general_knowledge": {"type": "boolean"}
+                            },
+                            "required": ["project_id"]
+                        }
+                    },
+                    {
+                        "name": "archive_project_memory",
+                        "description": "Archive project memory for long-term storage",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "project_id": {"type": "string"}
+                            },
+                            "required": ["project_id"]
+                        }
+                    },
+                    {
                         "name": "get_sprint_burndown",
                         "description": "Generate burndown chart data for a sprint",
                         "inputSchema": {
@@ -2203,6 +2291,9 @@ For more information, see the documentation in docs/
                             }
                         }
                     ]
+            },
+            "chat": {
+                "message": True
             }
         },
         "serverInfo": {
@@ -2280,6 +2371,29 @@ For more information, see the documentation in docs/
                 else:
                     # Tool not found
                     send_response(request_id, error={"code": -32601, "message": f"Unknown tool: {tool_name}"})
+                    
+            elif method == "chat/message":
+                # Handle natural language messages - route to Coordinator Agent
+                try:
+                    message_content = data.get("params", {}).get("content", "")
+                    if not message_content:
+                        send_response(request_id, error={"code": -32602, "message": "Message content is required"})
+                        return
+                    
+                    # Route to Coordinator Agent
+                    result = agent_system.chat_with_coordinator(message_content)
+                    
+                    if result["success"]:
+                        send_response(request_id, {
+                            "content": [{"type": "text", "text": result["response"]}],
+                            "structuredContent": result
+                        })
+                    else:
+                        send_response(request_id, error={"code": -32603, "message": result["error"]})
+                        
+                except Exception as e:
+                    logger.error(f"Error handling chat message: {e}")
+                    send_response(request_id, error={"code": -32603, "message": f"Error processing message: {str(e)}"})
                     
             else:
                 # Handle other methods
