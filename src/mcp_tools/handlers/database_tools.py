@@ -91,6 +91,29 @@ def get_database_tools() -> List[Dict[str, Any]]:
                 },
                 "required": []
             }
+        },
+        {
+            "name": "reset_project_memory",
+            "description": "Reset memory for a specific project while preserving general knowledge",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "string", "description": "Project ID to reset memory for"},
+                    "preserve_general_knowledge": {"type": "boolean", "description": "Whether to preserve general knowledge (default: true)"}
+                },
+                "required": ["project_id"]
+            }
+        },
+        {
+            "name": "archive_project_memory",
+            "description": "Archive project memory for long-term storage",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "string", "description": "Project ID to archive memory for"}
+                },
+                "required": ["project_id"]
+            }
         }
     ]
 
@@ -293,6 +316,62 @@ def handle_database_tool(tool_name: str, arguments: Dict[str, Any], request_id: 
             })
         except Exception as e:
             send_response(request_id, error={"code": -32603, "message": f"Error getting stats: {str(e)}"})
+        return True
+    
+    elif tool_name == "reset_project_memory":
+        try:
+            from src.database.enhanced_vector_store import get_enhanced_vector_store
+            project_id = arguments.get("project_id")
+            preserve_general_knowledge = arguments.get("preserve_general_knowledge", True)
+            
+            if not project_id:
+                send_response(request_id, error={"code": -32602, "message": "project_id is required"})
+                return True
+            
+            vector_store = get_enhanced_vector_store()
+            success = vector_store.reset_project_memory(project_id, preserve_general_knowledge)
+            
+            if success:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Project memory reset for {project_id} (preserved general knowledge: {preserve_general_knowledge})"}],
+                    "structuredContent": {
+                        "success": True,
+                        "project_id": project_id,
+                        "preserved_general_knowledge": preserve_general_knowledge,
+                        "action": "memory_reset"
+                    }
+                })
+            else:
+                send_response(request_id, error={"code": -32603, "message": f"Failed to reset project memory for: {project_id}"})
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error resetting project memory: {str(e)}"})
+        return True
+    
+    elif tool_name == "archive_project_memory":
+        try:
+            from src.database.enhanced_vector_store import get_enhanced_vector_store
+            project_id = arguments.get("project_id")
+            
+            if not project_id:
+                send_response(request_id, error={"code": -32602, "message": "project_id is required"})
+                return True
+            
+            vector_store = get_enhanced_vector_store()
+            success = vector_store.archive_project_memory(project_id)
+            
+            if success:
+                send_response(request_id, {
+                    "content": [{"type": "text", "text": f"Project memory archived for {project_id}"}],
+                    "structuredContent": {
+                        "success": True,
+                        "project_id": project_id,
+                        "action": "memory_archived"
+                    }
+                })
+            else:
+                send_response(request_id, error={"code": -32603, "message": f"Failed to archive project memory for: {project_id}"})
+        except Exception as e:
+            send_response(request_id, error={"code": -32603, "message": f"Error archiving project memory: {str(e)}"})
         return True
     
     return False

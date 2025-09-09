@@ -501,27 +501,6 @@ class AgentSystem:
                             "timestamp": datetime.now().isoformat(),
                             "coordinator_status": "active"
                         }
-                    elif action == "reset_project_memory":
-                        result = self.reset_project_memory(
-                            message_data.get("project_id"),
-                            message_data.get("preserve_general_knowledge", True)
-                        )
-                        return {
-                            "success": result["success"],
-                            "response": result.get("message", "Memory reset completed"),
-                            "data": result,
-                            "timestamp": datetime.now().isoformat(),
-                            "coordinator_status": "active"
-                        }
-                    elif action == "archive_project_memory":
-                        result = self.archive_project_memory(message_data.get("project_id"))
-                        return {
-                            "success": result["success"],
-                            "response": result.get("message", "Memory archived"),
-                            "data": result,
-                            "timestamp": datetime.now().isoformat(),
-                            "coordinator_status": "active"
-                        }
                     else:
                         return {
                             "success": False,
@@ -1172,48 +1151,6 @@ What would you like to work on?""",
             logger.error(f"Error getting generated project status: {e}")
             return {"success": False, "error": str(e)}
     
-    def reset_project_memory(self, project_id: str, preserve_general_knowledge: bool = True) -> Dict[str, Any]:
-        """Reset memory for a specific project while preserving general knowledge."""
-        try:
-            if not self.vector_store:
-                return {"success": False, "error": "Vector store not available"}
-            
-            success = self.vector_store.reset_project_memory(project_id, preserve_general_knowledge)
-            
-            if success:
-                return {
-                    "success": True,
-                    "message": f"Project memory reset for {project_id}",
-                    "preserved_general_knowledge": preserve_general_knowledge,
-                    "timestamp": datetime.now().isoformat()
-                }
-            else:
-                return {"success": False, "error": "Failed to reset project memory"}
-                
-        except Exception as e:
-            logger.error(f"Error resetting project memory: {e}")
-            return {"success": False, "error": str(e)}
-    
-    def archive_project_memory(self, project_id: str) -> Dict[str, Any]:
-        """Archive project memory for long-term storage."""
-        try:
-            if not self.vector_store:
-                return {"success": False, "error": "Vector store not available"}
-            
-            success = self.vector_store.archive_project_memory(project_id)
-            
-            if success:
-                return {
-                    "success": True,
-                    "message": f"Project memory archived for {project_id}",
-                    "timestamp": datetime.now().isoformat()
-                }
-            else:
-                return {"success": False, "error": "Failed to archive project memory"}
-                
-        except Exception as e:
-            logger.error(f"Error archiving project memory: {e}")
-            return {"success": False, "error": str(e)}
 
     def create_custom_project(self, project_name: str, language: str, 
                              custom_structure: Dict[str, Any] = None,
@@ -2090,29 +2027,6 @@ For more information, see the documentation in docs/
                     {
                         "name": "get_project_status",
                         "description": "Get comprehensive project status and metrics for an agile project",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "project_id": {"type": "string"}
-                            },
-                            "required": ["project_id"]
-                        }
-                    },
-                    {
-                        "name": "reset_project_memory",
-                        "description": "Reset memory for a specific project while preserving general knowledge",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "project_id": {"type": "string"},
-                                "preserve_general_knowledge": {"type": "boolean"}
-                            },
-                            "required": ["project_id"]
-                        }
-                    },
-                    {
-                        "name": "archive_project_memory",
-                        "description": "Archive project memory for long-term storage",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
