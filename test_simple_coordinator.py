@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append('src')
 
-from agents.coordinator.simple_coordinator_agent import SimpleCoordinatorAgent
+from src.agents.coordinator.simple_coordinator_agent import SimpleCoordinatorAgent
 import logging
 
 def test_simple_coordinator():

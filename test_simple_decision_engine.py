@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append('src')
 
-from llm.simple_decision_engine import SimpleDecisionEngine, ActionType, PDCAPhase
+from src.llm.simple_decision_engine import SimpleDecisionEngine, ActionType, PDCAPhase
 import logging
 
 def test_simple_decision_engine():
