@@ -5,12 +5,7 @@ extend-ignore =
     E501,
     W503,
     E402,
-    F401,
-    F541,
-    F811,
-    F824,
-    E722,
-    C901
+    F401
 
 exclude =
     .git,

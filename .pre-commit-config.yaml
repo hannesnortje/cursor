@@ -16,9 +16,10 @@ repos:
 
       - id: mypy
         name: MyPy type checker
-        entry: bash -c 'echo "Skipping MyPy for now to proceed with cleanup" && exit 0'
+        entry: poetry run mypy
         language: system
         types: [python]
+        args: [--no-strict-optional, --allow-untyped-defs, --allow-incomplete-defs]
 
       - id: pytest-fast
         name: Fast unit tests
