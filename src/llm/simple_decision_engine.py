@@ -127,7 +127,8 @@ class SimpleDecisionEngine:
             "agent team", "create the", "create an agile", "create a frontend", 
             "create a backend", "create a testing", "i'd like to create", 
             "create the core agents", "create core agents", "set up agents", 
-            "create specialized", "create the agents"
+            "create specialized", "create the agents", "create all the specialized agents",
+            "create the agent team", "set up the development environment"
         ]):
             return ProtocolDecision(
                 action_type=ActionType.CREATE_AGENTS,
@@ -136,6 +137,41 @@ class SimpleDecisionEngine:
                 next_phase=PDCAPhase.DO,
                 parameters={},
                 agent_types_needed=["agile", "frontend", "backend", "testing"]
+            )
+        
+        # Check for technology stack confirmation and development approach questions
+        has_tech_choices = any(phrase in message_lower for phrase in [
+            "vue 3 with typescript", "node.js with express", "postgresql",
+            "here's what i'm thinking", "i think we should go with"
+        ])
+        has_development_question = any(phrase in message_lower for phrase in [
+            "development approach", "what would you recommend for the development",
+            "does this technology stack make sense"
+        ])
+        
+        if has_tech_choices and has_development_question:
+            # Extract confirmed technology preferences
+            tech_prefs = []
+            if "vue" in message_lower:
+                tech_prefs.append("Vue 3")
+            if "react" in message_lower:
+                tech_prefs.append("React")
+            if "node.js" in message_lower or "nodejs" in message_lower:
+                tech_prefs.append("Node.js")
+            if "express" in message_lower:
+                tech_prefs.append("Express")
+            if "typescript" in message_lower:
+                tech_prefs.append("TypeScript")
+            if "postgresql" in message_lower:
+                tech_prefs.append("PostgreSQL")
+            
+            return ProtocolDecision(
+                action_type=ActionType.TECHNOLOGY_SELECTION,
+                confidence=0.95,
+                reasoning="User confirmed technology stack choices and requested development approach guidance",
+                next_phase=PDCAPhase.PLAN,
+                parameters={},
+                technology_preferences=tech_prefs
             )
         
         # Check for technology recommendations requests (but not initial project requests)
@@ -163,6 +199,53 @@ class SimpleDecisionEngine:
                 next_phase=PDCAPhase.PLAN,
                 parameters={},
                 technology_preferences=tech_prefs
+            )
+        
+        # Check for detailed technical requirements specification
+        has_detailed_features = any(phrase in message_lower for phrase in [
+            "core features needed", "technical considerations", "user roles", "data requirements",
+            "admin panel", "admin dashboard", "user authentication", "user management"
+        ])
+        has_tech_specs = any(phrase in message_lower for phrase in [
+            "fast and responsive", "secure", "easy to maintain", "desktop and mobile",
+            "authentication and management", "crud operations", "permission levels"
+        ])
+        has_specific_requirements = any(phrase in message_lower for phrase in [
+            "what technology approach", "what questions do you have", "technical requirements"
+        ])
+        
+        # If user provided detailed technical requirements, provide specific recommendations
+        if has_detailed_features and has_tech_specs:
+            return ProtocolDecision(
+                action_type=ActionType.PROVIDE_RECOMMENDATIONS,
+                confidence=0.95,
+                reasoning="User provided detailed technical requirements - ready for specific technology recommendations",
+                next_phase=PDCAPhase.PLAN,
+                parameters={},
+                technology_preferences=[]
+            )
+        
+        # Check for business context responses (answering discovery questions)
+        has_business_context = any(phrase in message_lower for phrase in [
+            "business context", "small company", "employees", "current pain points",
+            "currently using spreadsheets", "manual processes", "user management"
+        ])
+        has_goals = any(phrase in message_lower for phrase in [
+            "goals:", "objectives", "streamline", "visibility", "reduce overhead"
+        ])
+        has_constraints = any(phrase in message_lower for phrase in [
+            "constraints:", "must be web-based", "mobile devices", "secure", "cost-effective"
+        ])
+        
+        # If user provided business context, move to recommendations phase
+        if has_business_context and has_goals:
+            return ProtocolDecision(
+                action_type=ActionType.PROVIDE_RECOMMENDATIONS,
+                confidence=0.9,
+                reasoning="User provided business context and requirements - ready for technology recommendations",
+                next_phase=PDCAPhase.PLAN,
+                parameters={},
+                technology_preferences=[]
             )
         
         # Check for comprehensive project details

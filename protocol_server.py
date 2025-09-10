@@ -410,7 +410,8 @@ class AgentSystem:
             if not message.strip().startswith('{'):
                 logger.info("Using LLM-based coordinator for natural language message")
                 try:
-                    response = coordinator_agent.process_message(message)
+                    import asyncio
+                    response = asyncio.run(coordinator_agent.process_message(message))
                     return {
                         "success": True,
                         "response": response.get("response", "I'm processing your request..."),
