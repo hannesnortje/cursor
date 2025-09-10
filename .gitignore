@@ -31,8 +31,7 @@ venv.bak/
 # Poetry
 poetry.lock
 
-# IDE
-.vscode/
+# IDE (excluding .vscode/ since it contains project development configuration)
 .idea/
 *.swp
 *.swo
