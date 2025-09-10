@@ -71,7 +71,7 @@ def test_ssl_configuration():
 
         # Test 2: Create SSL context
         try:
-            context = ssl_config.create_ssl_context("test_context")
+            ssl_config.create_ssl_context("test_context")
             print("✅ SSL Context Created: test_context")
         except Exception as e:
             print(f"⚠️ SSL Context Creation: {e}")
