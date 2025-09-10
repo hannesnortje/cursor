@@ -456,7 +456,7 @@ Let's discuss this together and customize the agent team for your specific needs
 ✅ **Core Agents Created ({len(agents_created)} agents):**
 - **Agile/Scrum Agent**: Ready for sprint planning and user story management
 - **Frontend Agent**: Ready for Vue.js/TypeScript development
-- **Backend Agent**: Ready for Node.js/Express API development  
+- **Backend Agent**: Ready for Node.js/Express API development
 - **Testing Agent**: Ready for test strategies and automation
 
 📋 **Next Steps:**

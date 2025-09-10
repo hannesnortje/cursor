@@ -1,13 +1,13 @@
 [flake8]
 max-line-length = 88
-extend-ignore = 
+extend-ignore =
     E203,  # whitespace before ':'
     E501,  # line too long (handled by black)
     W503,  # line break before binary operator
     E402,  # module level import not at top of file (common in __init__.py)
     F401,  # imported but unused (handled by autoflake/isort)
-    
-exclude = 
+
+exclude =
     .git,
     __pycache__,
     .venv,
@@ -22,5 +22,5 @@ per-file-ignores =
     __init__.py:F401,F403
     test_*.py:F401,F403,S101
     tests/*:F401,F403,S101
-    
+
 max-complexity = 10

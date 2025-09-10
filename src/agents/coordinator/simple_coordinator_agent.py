@@ -893,7 +893,7 @@ Would you like me to:
 
 📋 **Agile Agent Result**: {agile_result.get('response', 'Sprint planning initiated')}
 
-🚀 **Next Steps**: 
+🚀 **Next Steps**:
 - Sprint planning has been set up
 - User stories will be created
 - Team velocity will be tracked
@@ -1010,7 +1010,7 @@ Let me try to resolve this issue...""",
 
 🚀 **Agent Team Status**:
 - **Coordinator Agent**: Managing overall project (✅ Active)
-- **Agile Agent**: Ready for sprint planning (✅ Active) 
+- **Agile Agent**: Ready for sprint planning (✅ Active)
 - **Frontend Agent**: Ready for Vue 3 development (✅ Active)
 - **Backend Agent**: Ready for Node.js development (✅ Active)
 - **Testing Agent**: Ready for test automation (✅ Active)

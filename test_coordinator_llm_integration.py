@@ -49,7 +49,7 @@ def test_phase_10_6_workflow():
     vue_message = """Thanks for the questions! Here are my answers:
 
 1. Main purpose: A comprehensive project management system for our 5-developer team
-2. Target users: Development team members, project managers, and clients  
+2. Target users: Development team members, project managers, and clients
 3. Key features: Task tracking, sprint management, code collaboration, time tracking, client dashboards
 
 4. Current state: We're using scattered tools (Trello, email, spreadsheets) - need centralization

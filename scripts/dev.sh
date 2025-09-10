@@ -85,12 +85,12 @@ test_all() {
 quality() {
     print_header
     echo -e "${YELLOW}🔍 Running quality checks...${NC}"
-    
+
     format || return 1
     lint || return 1
     typecheck || return 1
     test || return 1
-    
+
     echo -e "${GREEN}✅ All quality checks passed!${NC}"
 }
 

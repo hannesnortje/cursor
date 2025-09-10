@@ -87,7 +87,7 @@ def test_mcp_coordinator_integration():
 
 **Business Context:**
 - Development team of 5 people working on multiple client projects
-- Currently using scattered tools (Trello, email, spreadsheets) 
+- Currently using scattered tools (Trello, email, spreadsheets)
 - Need centralized project management and team collaboration
 
 **Technical Requirements:**
@@ -153,7 +153,7 @@ What technology stack and architecture would you recommend for this project mana
     agent_request = """Excellent technology recommendations! Now I'd like to create the specialized development team agents to help with this Vue 3 project management system. Can you create these core agents:
 
 1. Agile Agent - for sprint planning and Scrum methodology
-2. Frontend Agent - for Vue 3 + TypeScript development  
+2. Frontend Agent - for Vue 3 + TypeScript development
 3. Backend Agent - for Node.js API and database work
 4. Testing Agent - for quality assurance and testing
 

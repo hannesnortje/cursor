@@ -7,20 +7,20 @@ repos:
         language: system
         types: [python]
         args: [--line-length=88]
-        
+
       - id: flake8
         name: Flake8 Python linter
         entry: poetry run flake8
         language: system
         types: [python]
-        
+
       - id: mypy
         name: MyPy type checker
         entry: poetry run mypy
         language: system
         types: [python]
         args: [--ignore-missing-imports]
-        
+
       - id: pytest-fast
         name: Fast unit tests
         entry: poetry run pytest
@@ -28,7 +28,7 @@ repos:
         types: [python]
         args: [tests/unit/, -x, --tb=short]
         pass_filenames: false
-        
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -39,6 +39,6 @@ repos:
       - id: check-json
       - id: check-merge-conflict
       - id: check-added-large-files
-        args: ['--maxkb=1000']
+        args: ["--maxkb=1000"]
       - id: mixed-line-ending
-        args: ['--fix=lf']
+        args: ["--fix=lf"]
