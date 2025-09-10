@@ -1,0 +1,223 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Format Code",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "black",
+                "."
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Lint Code",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "flake8",
+                "."
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "flake8",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(\\w+)\\s+(\\w+)\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                }
+            ]
+        },
+        {
+            "label": "Type Check",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "mypy",
+                "src/",
+                "--ignore-missing-imports"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "mypy",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}"
+                    ],
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):\\s+(\\w+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "severity": 3,
+                        "message": 4
+                    }
+                }
+            ]
+        },
+        {
+            "label": "Run Unit Tests",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "pytest",
+                "tests/unit/",
+                "-v"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run All Tests",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "pytest",
+                "tests/",
+                "-v",
+                "--tb=short"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Quality Check",
+            "type": "shell",
+            "command": "./scripts/dev.sh",
+            "args": [
+                "quality"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Format Code",
+                "Lint Code",
+                "Type Check",
+                "Run Unit Tests"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Start MCP Server",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "python",
+                "protocol_server.py"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated"
+            },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Test LLM Coordinator",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "python",
+                "test_llm_coordinator_real.py"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean Cache",
+            "type": "shell",
+            "command": "./scripts/dev.sh",
+            "args": [
+                "clean"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "install"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "ms-python.flake8",
+        "ms-python.black-formatter",
+        "ms-python.mypy-type-checker",
+        "github.copilot",
+        "github.copilot-chat",
+        "ms-vscode.vscode-json",
+        "tamasfe.even-better-toml",
+        "ms-python.debugpy",
+        "njpwerner.autodocstring",
+        "wholroyd.jinja",
+        "redhat.vscode-yaml",
+        "ms-vscode.makefile-tools",
+        "gruntfuggly.todo-tree",
+        "eamodio.gitlens",
+        "ms-vscode.test-adapter-converter",
+        "littlefoxteam.vscode-python-test-adapter"
+    ]
+}

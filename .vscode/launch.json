@@ -1,0 +1,74 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: MCP Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/protocol_server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "LOG_LEVEL": "DEBUG"
+            },
+            "args": [],
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Test Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: All Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: LLM Coordinator Test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_llm_coordinator_real.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "LOG_LEVEL": "INFO"
+            }
+        }
+    ]
+}
