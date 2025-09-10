@@ -28,6 +28,38 @@ def get_system_tools() -> List[Dict[str, Any]]:
                 "required": ["message"],
             },
         },
+        # Knowledge Bridge Tools
+        {
+            "name": "ingest_cursor_knowledge",
+            "description": "Capture Cursor development actions into the knowledge system",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action_type": {"type": "string"},
+                    "content": {"type": "string"},
+                    "file_path": {"type": "string"},
+                    "project_context": {"type": "string"},
+                    "user_feedback": {"type": "string"},
+                    "success_metrics": {"type": "object"},
+                    "technology_stack": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["action_type", "content", "file_path", "project_context"],
+            },
+        },
+        {
+            "name": "query_relevant_patterns",
+            "description": "Retrieve relevant patterns for code generation",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "requirements": {"type": "string"},
+                    "file_type": {"type": "string"},
+                    "project_context": {"type": "string"},
+                    "similarity_threshold": {"type": "number", "default": 0.8},
+                },
+                "required": ["requirements", "file_type", "project_context"],
+            },
+        },
         # Communication System Tools
         {
             "name": "start_communication_system",
@@ -492,6 +524,103 @@ def handle_system_tool(
                     "code": -32603,
                     "message": f"Error chatting with coordinator: {str(e)}",
                 },
+            )
+        return True
+
+    # Knowledge Bridge Tools
+    elif tool_name == "ingest_cursor_knowledge":
+        try:
+            from src.mcp_tools.knowledge_bridge import CursorKnowledgeBridge
+
+            # Validate required arguments
+            required_fields = ["action_type", "content", "file_path", "project_context"]
+            for field in required_fields:
+                if not arguments.get(field):
+                    send_response(
+                        request_id,
+                        error={"code": -32602, "message": f"{field} is required"},
+                    )
+                    return True
+
+            bridge = CursorKnowledgeBridge()
+            result = bridge.ingest_cursor_action(
+                action_type=arguments.get("action_type"),
+                content=arguments.get("content"),
+                file_path=arguments.get("file_path"),
+                project_context=arguments.get("project_context"),
+                user_feedback=arguments.get("user_feedback"),
+                success_metrics=arguments.get("success_metrics", {}),
+                technology_stack=arguments.get("technology_stack", []),
+            )
+
+            send_response(
+                request_id,
+                {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Knowledge captured successfully. Action ID: {result.get('action_id')}",
+                        }
+                    ],
+                    "structuredContent": {
+                        "success": True,
+                        "action_id": result.get("action_id"),
+                        "patterns_identified": result.get("patterns_identified", 0),
+                    },
+                },
+            )
+        except Exception as e:
+            send_response(
+                request_id,
+                error={
+                    "code": -32603,
+                    "message": f"Error ingesting knowledge: {str(e)}",
+                },
+            )
+        return True
+
+    elif tool_name == "query_relevant_patterns":
+        try:
+            from src.mcp_tools.knowledge_bridge import CursorKnowledgeBridge
+
+            # Validate required arguments
+            required_fields = ["requirements", "file_type", "project_context"]
+            for field in required_fields:
+                if not arguments.get(field):
+                    send_response(
+                        request_id,
+                        error={"code": -32602, "message": f"{field} is required"},
+                    )
+                    return True
+
+            bridge = CursorKnowledgeBridge()
+            patterns = bridge.query_relevant_patterns(
+                requirements=arguments.get("requirements"),
+                file_type=arguments.get("file_type"),
+                project_context=arguments.get("project_context"),
+                similarity_threshold=arguments.get("similarity_threshold", 0.8),
+            )
+
+            send_response(
+                request_id,
+                {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Found {len(patterns.relevant_patterns)} relevant patterns",
+                        }
+                    ],
+                    "structuredContent": {
+                        "success": True,
+                        "patterns": patterns.relevant_patterns,
+                        "count": len(patterns.relevant_patterns),
+                    },
+                },
+            )
+        except Exception as e:
+            send_response(
+                request_id,
+                error={"code": -32603, "message": f"Error querying patterns: {str(e)}"},
             )
         return True
 

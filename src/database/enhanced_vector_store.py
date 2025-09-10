@@ -68,6 +68,23 @@ class ProjectContext:
     vector: Optional[List[float]] = None
 
 
+@dataclass
+class CursorKnowledgePoint:
+    """A knowledge point from Cursor development actions."""
+
+    id: str
+    action_type: str  # file_creation, code_modification, debugging, etc.
+    content: str
+    file_path: str
+    project_context: str
+    user_feedback: Optional[str]
+    success_metrics: Dict[str, Any]
+    technology_stack: List[str]
+    patterns_identified: List[str]
+    timestamp: datetime
+    vector: Optional[List[float]] = None
+
+
 class InMemoryVectorStore:
     """In-memory fallback for vector storage."""
 
@@ -196,6 +213,7 @@ class EnhancedVectorStore:
             "projects",
             "agents",
             "knowledge",
+            "cursor_knowledge",
             "sprints",
             "documents",
         ]
@@ -448,7 +466,12 @@ class EnhancedVectorStore:
 
             if self.fallback_mode:
                 # Reset in-memory store for this project
-                for collection_name in ["conversations", "knowledge", "agents"]:
+                for collection_name in [
+                    "conversations",
+                    "knowledge",
+                    "agents",
+                    "cursor_knowledge",
+                ]:
                     full_name = self.get_collection_name(collection_name)
                     if full_name in self.in_memory_store.collections:
                         if (
@@ -473,7 +496,12 @@ class EnhancedVectorStore:
                 return True
             else:
                 # Reset Qdrant collections for this project
-                for collection_name in ["conversations", "knowledge", "agents"]:
+                for collection_name in [
+                    "conversations",
+                    "knowledge",
+                    "agents",
+                    "cursor_knowledge",
+                ]:
                     full_name = self.get_collection_name(collection_name)
                     try:
                         if (
@@ -524,7 +552,12 @@ class EnhancedVectorStore:
 
             if self.fallback_mode:
                 # In-memory archiving - just mark as archived
-                for collection_name in ["conversations", "knowledge", "agents"]:
+                for collection_name in [
+                    "conversations",
+                    "knowledge",
+                    "agents",
+                    "cursor_knowledge",
+                ]:
                     full_name = self.get_collection_name(collection_name)
                     if full_name in self.in_memory_store.collections:
                         for point in self.in_memory_store.collections[full_name]:
@@ -537,7 +570,12 @@ class EnhancedVectorStore:
                 return True
             else:
                 # Qdrant archiving - move to archived collections
-                for collection_name in ["conversations", "knowledge", "agents"]:
+                for collection_name in [
+                    "conversations",
+                    "knowledge",
+                    "agents",
+                    "cursor_knowledge",
+                ]:
                     full_name = self.get_collection_name(collection_name)
                     archived_name = f"{full_name}_archived"
 
