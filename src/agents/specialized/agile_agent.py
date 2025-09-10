@@ -44,7 +44,7 @@ class UserStoryEstimate:
 class AgileAgent(BaseAgent):
     """Agile/Scrum Agent for project management and sprint planning."""
 
-    def __init__(self, agent_id: str = None, name: str = "Agile Agent"):
+    def __init__(self, agent_id: Optional[str] = None, name: str = "Agile Agent"):
         super().__init__(
             agent_id=agent_id or f"agile_{uuid.uuid4().hex[:8]}",
             name=name,
@@ -162,7 +162,7 @@ class AgileAgent(BaseAgent):
         self,
         project_name: str,
         project_type: str = "scrum",
-        sprint_length: int = None,
+        sprint_length: Optional[int] = None,
         team_size: int = 5,
     ) -> Dict[str, Any]:
         """Create a new agile project."""
@@ -209,9 +209,9 @@ class AgileAgent(BaseAgent):
         title: str,
         description: str,
         acceptance_criteria: List[str],
-        story_points: int = None,
+        story_points: Optional[int] = None,
         priority: str = "medium",
-        epic: str = None,
+        epic: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new user story."""
         try:
@@ -309,9 +309,9 @@ class AgileAgent(BaseAgent):
         self,
         project_id: str,
         sprint_name: str,
-        start_date: str = None,
-        end_date: str = None,
-        goal: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        goal: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new sprint."""
         try:
@@ -417,7 +417,7 @@ class AgileAgent(BaseAgent):
             return {"success": False, "error": str(e)}
 
     def complete_user_story(
-        self, story_id: str, actual_hours: float = None
+        self, story_id: str, actual_hours: Optional[float] = None
     ) -> Dict[str, Any]:
         """Mark a user story as completed."""
         try:
@@ -457,14 +457,13 @@ class AgileAgent(BaseAgent):
             return {"success": False, "error": str(e)}
 
     def calculate_team_velocity(
-        self, project_id: str, sprint_count: int = None
+        self, project_id: str, sprint_count: Optional[int] = None
     ) -> Dict[str, Any]:
         """Calculate team velocity based on completed sprints."""
         try:
             if project_id not in self.agile_projects:
                 return {"success": False, "error": f"Project {project_id} not found"}
 
-            project = self.agile_projects[project_id]
             sprint_count = sprint_count or self.velocity_calculation_sprints
 
             # Get completed sprints for this project

@@ -317,6 +317,14 @@ class DockerOllamaProvider:
         """Get default Docker Ollama models."""
         return [
             LLMModel(
+                name="llama3.1:8b",
+                provider=LLMProvider.DOCKER_OLLAMA,
+                model_type=ModelType.GENERAL,
+                max_tokens=4096,
+                temperature=0.7,
+                api_base=self.api_base,
+            ),
+            LLMModel(
                 name="llama3.2:3b",
                 provider=LLMProvider.DOCKER_OLLAMA,
                 model_type=ModelType.GENERAL,
@@ -345,7 +353,7 @@ class DockerOllamaProvider:
     async def get_available_models(self) -> List[LLMModel]:
         """Get available Docker Ollama models."""
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{self.api_base}/api/tags")
                 if response.status_code == 200:
                     models_data = response.json()
@@ -379,7 +387,7 @@ class DockerOllamaProvider:
 
             # Try to connect to external service first
             try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
+                async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
                         f"{self.api_base}/api/generate",
                         json={

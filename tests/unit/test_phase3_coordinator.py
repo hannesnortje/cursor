@@ -3,8 +3,10 @@
 import asyncio
 import sys
 from datetime import datetime
+import pytest
 
 
+@pytest.mark.asyncio
 async def test_pdca_framework():
     """Test the PDCA framework."""
     print("🧪 Testing PDCA Framework...")
@@ -71,6 +73,7 @@ async def test_pdca_framework():
         return False
 
 
+@pytest.mark.asyncio
 async def test_coordinator_agent():
     """Test the Coordinator Agent."""
     print("🧪 Testing Coordinator Agent...")
@@ -165,6 +168,7 @@ async def test_coordinator_agent():
         return False
 
 
+@pytest.mark.asyncio
 async def test_pdca_integration():
     """Test PDCA integration with Coordinator Agent."""
     print("🧪 Testing PDCA Integration...")

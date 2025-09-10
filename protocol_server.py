@@ -1620,25 +1620,62 @@ What would you like to work on?""",
             raise
 
     def _get_or_create_coordinator_agent(self):
-        """Get or create a Simple Coordinator Agent instance with LLM decision engine."""
-        # Check if we already have a Coordinator Agent
+        """Get or create a Fast Coordinator Agent instance."""
+        # Check if we already have a Fast Coordinator Agent
         for agent in self.agents.values():
-            if hasattr(agent, "name") and agent.name == "Simple Coordinator":
+            if hasattr(agent, "name") and "Fast Coordinator" in agent.name:
                 return agent
 
-        # Create new Simple Coordinator Agent if none exists
+        # Create new Fast Coordinator Agent if none exists
         try:
-            from src.agents.coordinator.simple_coordinator_agent import (
-                SimpleCoordinatorAgent,
+            from src.agents.coordinator.coordinator_integration import (
+                get_coordinator_integration,
             )
 
-            coordinator_agent = SimpleCoordinatorAgent()
-            self.register_agent(coordinator_agent)
-            logger.info("Created new Simple Coordinator Agent with LLM decision engine")
+            # Initialize the fast coordinator integration
+            integration = get_coordinator_integration(use_fast=True)
+
+            # Return a wrapper that provides the expected interface
+            class CoordinatorWrapper:
+                def __init__(self):
+                    self.name = "Fast Coordinator"
+                    self.integration = integration
+
+                async def process_message(self, message: str) -> Dict[str, Any]:
+                    """Process message through fast coordinator."""
+                    from src.agents.coordinator.coordinator_integration import (
+                        process_user_message_with_memory,
+                    )
+
+                    return await process_user_message_with_memory(
+                        message, use_fast=True
+                    )
+
+            coordinator_agent = CoordinatorWrapper()
+
+            # Register with a simple key since it's not a full agent
+            self.agents["memory_enhanced_coordinator"] = coordinator_agent
+
+            logger.info(
+                "Created new Memory-Enhanced Coordinator Agent with Qdrant memory"
+            )
             return coordinator_agent
+
         except ImportError as e:
-            logger.error(f"Could not import SimpleCoordinatorAgent: {e}")
-            raise
+            logger.error(f"Could not import Memory-Enhanced Coordinator: {e}")
+            # Fallback to basic coordinator if memory-enhanced version fails
+            try:
+                from src.agents.coordinator.coordinator_agent import CoordinatorAgent
+
+                coordinator_agent = CoordinatorAgent()
+                self.register_agent(coordinator_agent)
+                logger.info("Created fallback Coordinator Agent")
+                return coordinator_agent
+            except ImportError as fallback_error:
+                logger.error(
+                    f"Could not import fallback CoordinatorAgent: {fallback_error}"
+                )
+                raise Exception("No coordinator agent available")
 
     def _get_or_create_agile_agent(self):
         """Get or create an Agile Agent instance."""
