@@ -41,18 +41,20 @@ class FastCoordinator:
         self.vector_store = vector_store
         self.llm_gateway = llm_gateway
         self.agent_system = agent_system  # Add MCP integration for action execution
-        self.enable_llm_polish = True  # Optional LLM enhancement
+        self.enable_llm_polish = (
+            False  # Disable LLM polish to test pure action execution
+        )
         self.enable_action_execution = True  # Enable automatic action execution
 
         # Fast intent patterns
         self.intent_patterns = {
             "project_planning": [
-                r"create.*project",
-                r"build.*dashboard",
-                r"develop.*application",
-                r"plan.*project",
-                r"start.*project",
-                r"new.*project",
+                r"create.*(project|application|app|system|service)",
+                r"build.*(dashboard|application|app|project|system)",
+                r"develop.*(application|app|project|system|service)",
+                r"plan.*(project|application|app|system)",
+                r"start.*(project|application|app|system)",
+                r"new.*(project|application|app|system)",
                 r"vue\.?js",
                 r"react",
                 r"angular",
@@ -62,6 +64,8 @@ class FastCoordinator:
                 r"webapp",
                 r"website",
                 r"api",
+                r"modern.*web",
+                r"web.*application",
             ],
             "agent_creation": [
                 r"create.*agent",
@@ -196,12 +200,21 @@ What would you like to work on?""",
         }
 
     async def process_message_fast(self, user_message: str) -> Dict[str, Any]:
-        """Fast message processing with rule-based logic and action execution."""
+        """Process message with fast rule-based logic and optional LLM polish.
+
+        This method aims to respond within 2 seconds for most requests.
+        """
         try:
             start_time = datetime.now()
 
+            # Add debug logging
+            logger.info(f"🔍 FastCoordinator processing: '{user_message}'")
+
             # Step 1: Fast intent detection (< 0.1s)
             intent_result = self._detect_intent_fast(user_message)
+            logger.info(
+                f"🧠 Intent detected: {intent_result.intent} (confidence: {intent_result.confidence:.2f})"
+            )
 
             # Step 2: Quick memory search (< 0.5s)
             memory_context = await self._search_memory_fast(user_message, intent_result)
@@ -212,9 +225,11 @@ What would you like to work on?""",
                 self.enable_action_execution
                 and intent_result.intent == "project_planning"
             ):
+                logger.info("🚀 Executing project planning actions...")
                 action_results = await self._execute_project_planning_actions(
                     intent_result, memory_context, user_message
                 )
+                logger.info(f"⚡ Action results: {action_results}")
 
             # Step 4: Template-based response generation (< 0.1s)
             response_template = self._generate_response_template(
@@ -317,7 +332,7 @@ What would you like to work on?""",
         self, user_message: str, intent_result: FastIntentResult
     ) -> Dict[str, Any]:
         """Fast memory search with minimal overhead."""
-        memory_context = {
+        memory_context: Dict[str, Any] = {
             "similar_projects": [],
             "knowledge_items": [],
             "success_patterns": [],
