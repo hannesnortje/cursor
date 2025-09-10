@@ -1637,9 +1637,10 @@ What would you like to work on?""",
 
             # Return a wrapper that provides the expected interface
             class CoordinatorWrapper:
-                def __init__(self):
+                def __init__(self, agent_system):
                     self.name = "Fast Coordinator"
                     self.integration = integration
+                    self.agent_system = agent_system
 
                 async def process_message(self, message: str) -> Dict[str, Any]:
                     """Process message through fast coordinator."""
@@ -1648,10 +1649,10 @@ What would you like to work on?""",
                     )
 
                     return await process_user_message_with_memory(
-                        message, use_fast=True
+                        message, use_fast=True, agent_system=self.agent_system
                     )
 
-            coordinator_agent = CoordinatorWrapper()
+            coordinator_agent = CoordinatorWrapper(self)
 
             # Register with a simple key since it's not a full agent
             self.agents["memory_enhanced_coordinator"] = coordinator_agent

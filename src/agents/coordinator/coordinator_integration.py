@@ -18,13 +18,15 @@ logger = logging.getLogger(__name__)
 class CoordinatorIntegration:
     """Integration layer for Fast and Memory-Enhanced Coordinators with MCP Server."""
 
-    def __init__(self, use_fast_coordinator: bool = True):
+    def __init__(self, use_fast_coordinator: bool = True, agent_system=None):
         """Initialize the integration.
 
         Args:
             use_fast_coordinator: Whether to use the fast rule-based coordinator (default: True)
+            agent_system: MCP agent system for action execution
         """
         self.use_fast_coordinator = use_fast_coordinator
+        self.agent_system = agent_system
         self.fast_coordinator: Optional[FastCoordinator] = None
         self.memory_coordinator: Optional[MemoryEnhancedCoordinator] = None
         self.initialized = False
@@ -36,9 +38,13 @@ class CoordinatorIntegration:
                 # Initialize fast coordinator
                 vector_store = get_enhanced_vector_store()
                 self.fast_coordinator = FastCoordinator(
-                    vector_store=vector_store, llm_gateway=llm_gateway
+                    vector_store=vector_store,
+                    llm_gateway=llm_gateway,
+                    agent_system=self.agent_system,
                 )
-                logger.info("Fast Coordinator initialized successfully")
+                logger.info(
+                    "Fast Coordinator initialized successfully with action execution"
+                )
             else:
                 # Initialize memory-enhanced coordinator (legacy)
                 self.memory_coordinator = get_memory_enhanced_coordinator()
@@ -159,20 +165,31 @@ _fast_coordinator_integration = None
 _memory_coordinator_integration = None
 
 
-def get_coordinator_integration(use_fast: bool = True) -> CoordinatorIntegration:
+def get_coordinator_integration(
+    use_fast: bool = True, agent_system=None
+) -> CoordinatorIntegration:
     """Get the global coordinator integration instance."""
     global _fast_coordinator_integration, _memory_coordinator_integration
 
     if use_fast:
         if _fast_coordinator_integration is None:
             _fast_coordinator_integration = CoordinatorIntegration(
-                use_fast_coordinator=True
+                use_fast_coordinator=True, agent_system=agent_system
             )
+        elif (
+            agent_system and _fast_coordinator_integration.agent_system != agent_system
+        ):
+            # Update agent system if provided
+            _fast_coordinator_integration.agent_system = agent_system
+            if _fast_coordinator_integration.fast_coordinator:
+                _fast_coordinator_integration.fast_coordinator.agent_system = (
+                    agent_system
+                )
         return _fast_coordinator_integration
     else:
         if _memory_coordinator_integration is None:
             _memory_coordinator_integration = CoordinatorIntegration(
-                use_fast_coordinator=False
+                use_fast_coordinator=False, agent_system=agent_system
             )
         return _memory_coordinator_integration
 
@@ -181,16 +198,19 @@ def get_coordinator_integration(use_fast: bool = True) -> CoordinatorIntegration
 
 
 async def process_user_message_with_memory(
-    message: str, use_fast: bool = True
+    message: str, use_fast: bool = True, agent_system=None
 ) -> Dict[str, Any]:
     """Process user message with the specified coordinator type.
 
     Args:
         message: User message to process
         use_fast: Whether to use fast coordinator (True) or memory-enhanced (False)
+        agent_system: MCP agent system for action execution
     """
     try:
-        integration = get_coordinator_integration(use_fast=use_fast)
+        integration = get_coordinator_integration(
+            use_fast=use_fast, agent_system=agent_system
+        )
 
         if not integration.initialized:
             await integration.initialize()

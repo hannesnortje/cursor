@@ -35,12 +35,14 @@ class ResponseTemplate:
 
 
 class FastCoordinator:
-    """Fast rule-based coordinator with optional LLM polish."""
+    """Fast rule-based coordinator with optional LLM polish and action execution."""
 
-    def __init__(self, vector_store=None, llm_gateway=None):
+    def __init__(self, vector_store=None, llm_gateway=None, agent_system=None):
         self.vector_store = vector_store
         self.llm_gateway = llm_gateway
+        self.agent_system = agent_system  # Add MCP integration for action execution
         self.enable_llm_polish = True  # Optional LLM enhancement
+        self.enable_action_execution = True  # Enable automatic action execution
 
         # Fast intent patterns
         self.intent_patterns = {
@@ -103,29 +105,23 @@ class FastCoordinator:
         # Response templates
         self.response_templates = {
             "project_planning": {
-                "template": """🎯 **Fast Project Planning Ready**
+                "template": """🎯 **Project Planning {action_status}**
 
 **📊 Project Type Detected:** {project_type}
+
+{action_results_section}
 
 **🧠 Memory Insights:**
 - Found {similar_projects_count} similar projects
 - Success rate: {success_rate}%
 - {knowledge_items_count} relevant knowledge items
 
-**🚀 Recommended Approach:**
+**🚀 Approach:**
 - **Methodology:** {methodology}
 - **Key Phases:** {key_phases}
-- **Proven Technologies:** {technologies}
+- **Technologies:** {technologies}
 
-**🤖 Recommended Agent Team:**
-{agent_recommendations}
-
-**✅ Ready to proceed!**
-
-Would you like me to:
-1. Start detailed planning for this project type?
-2. Create the recommended agent team?
-3. Show specific implementation guidance?""",
+{next_steps_section}""",
                 "polish_recommended": True,
             },
             "agent_creation": {
@@ -200,7 +196,7 @@ What would you like to work on?""",
         }
 
     async def process_message_fast(self, user_message: str) -> Dict[str, Any]:
-        """Fast message processing with rule-based logic."""
+        """Fast message processing with rule-based logic and action execution."""
         try:
             start_time = datetime.now()
 
@@ -210,12 +206,22 @@ What would you like to work on?""",
             # Step 2: Quick memory search (< 0.5s)
             memory_context = await self._search_memory_fast(user_message, intent_result)
 
-            # Step 3: Template-based response generation (< 0.1s)
+            # Step 3: Execute actions if enabled (< 2s)
+            action_results = None
+            if (
+                self.enable_action_execution
+                and intent_result.intent == "project_planning"
+            ):
+                action_results = await self._execute_project_planning_actions(
+                    intent_result, memory_context, user_message
+                )
+
+            # Step 4: Template-based response generation (< 0.1s)
             response_template = self._generate_response_template(
-                intent_result, memory_context
+                intent_result, memory_context, action_results
             )
 
-            # Step 4: Optional LLM polish (< 3s, only if beneficial)
+            # Step 5: Optional LLM polish (< 3s, only if beneficial)
             final_response = await self._apply_optional_polish(
                 response_template, user_message
             )
@@ -224,7 +230,7 @@ What would you like to work on?""",
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
 
-            return {
+            result = {
                 "success": True,
                 "response": final_response,
                 "intent": intent_result.intent,
@@ -237,6 +243,14 @@ What would you like to work on?""",
                 "llm_enhanced": response_template.polish_recommended
                 and self.enable_llm_polish,
             }
+
+            # Add action results if any
+            if action_results:
+                result["actions_executed"] = action_results
+                result["agents_created"] = action_results.get("agents_created", [])
+                result["project_created"] = action_results.get("project_created", False)
+
+            return result
 
         except Exception as e:
             logger.error(f"Error in fast message processing: {e}")
@@ -344,7 +358,10 @@ What would you like to work on?""",
         return memory_context
 
     def _generate_response_template(
-        self, intent_result: FastIntentResult, memory_context: Dict[str, Any]
+        self,
+        intent_result: FastIntentResult,
+        memory_context: Dict[str, Any],
+        action_results: Dict[str, Any] = None,
     ) -> ResponseTemplate:
         """Generate response using templates (very fast)."""
         intent = intent_result.intent
@@ -354,7 +371,7 @@ What would you like to work on?""",
 
         # Prepare template variables based on intent
         variables = self._prepare_template_variables(
-            intent, intent_result, memory_context
+            intent, intent_result, memory_context, action_results
         )
 
         # Fill template
@@ -378,6 +395,7 @@ What would you like to work on?""",
         intent: str,
         intent_result: FastIntentResult,
         memory_context: Dict[str, Any],
+        action_results: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """Prepare variables for template filling."""
         base_vars = {
@@ -387,7 +405,7 @@ What would you like to work on?""",
         }
 
         if intent == "project_planning":
-            return {
+            base_vars = {
                 **base_vars,
                 "project_type": intent_result.extracted_data.get(
                     "project_type", "Web Application"
@@ -410,6 +428,46 @@ What would you like to work on?""",
                     intent_result.extracted_data.get("project_type", "")
                 ),
             }
+
+            # Add action results if available
+            if action_results:
+                base_vars.update(
+                    {
+                        "actions_executed": True,
+                        "project_created": action_results.get("project_created", False),
+                        "agents_created": action_results.get("agents_created", []),
+                        "actions_taken": action_results.get("actions_taken", []),
+                        "workflow_started": action_results.get(
+                            "workflow_started", False
+                        ),
+                        "project_id": action_results.get("project_id", ""),
+                        "workflow_id": action_results.get("workflow_id", ""),
+                        "action_status": "COMPLETED ✅",
+                        "action_results_section": self._format_action_results(
+                            action_results
+                        ),
+                        "next_steps_section": self._format_next_steps_completed(
+                            action_results
+                        ),
+                    }
+                )
+            else:
+                base_vars.update(
+                    {
+                        "actions_executed": False,
+                        "action_status": "Ready",
+                        "action_results_section": "**🤖 Recommended Agent Team:**\n"
+                        + base_vars["agent_recommendations"],
+                        "next_steps_section": """**✅ Ready to proceed!**
+
+Would you like me to:
+1. Start detailed planning for this project type?
+2. Create the recommended agent team?
+3. Show specific implementation guidance?""",
+                    }
+                )
+
+            return base_vars
 
         elif intent == "agent_creation":
             project_type = self._infer_project_type_from_context(memory_context)
@@ -617,3 +675,225 @@ Keep it professional but friendly. Don't add or remove any information."""
 • **Speed**: Iteration velocity, delivery time
 • **Learning**: Knowledge gained, improvements made
 • **Value**: User satisfaction, business goals achieved"""
+
+    async def _execute_project_planning_actions(
+        self,
+        intent_result: FastIntentResult,
+        memory_context: Dict[str, Any],
+        user_message: str,
+    ) -> Dict[str, Any]:
+        """Execute actual project planning actions instead of just providing templates."""
+        try:
+            if not self.agent_system:
+                logger.warning("No agent system available for action execution")
+                return None
+
+            logger.info("Executing project planning actions...")
+            action_results = {
+                "agents_created": [],
+                "project_created": False,
+                "workflow_started": False,
+                "actions_taken": [],
+            }
+
+            # Determine project details
+            project_type = intent_result.extracted_data.get(
+                "project_type", "web_application"
+            )
+            project_name = (
+                self._extract_project_name(user_message)
+                or f"Project_{uuid.uuid4().hex[:8]}"
+            )
+
+            # Step 1: Create Agile Project
+            try:
+                agile_result = self.agent_system.create_agile_project(
+                    project_name=project_name,
+                    project_type=project_type.replace("_", " "),
+                    sprint_length=2,
+                    team_size=3,
+                )
+                if agile_result.get("success"):
+                    action_results["project_created"] = True
+                    action_results["project_id"] = agile_result.get("project_id")
+                    action_results["actions_taken"].append(
+                        f"Created agile project: {project_name}"
+                    )
+                    logger.info(f"Created agile project: {project_name}")
+            except Exception as e:
+                logger.error(f"Failed to create agile project: {e}")
+
+            # Step 2: Create specialized agents
+            agents_to_create = self._get_required_agents(project_type)
+            for agent_config in agents_to_create:
+                try:
+                    agent_result = self.agent_system.create_agent(
+                        agent_id=agent_config["agent_id"],
+                        role_name=agent_config["role_name"],
+                        capabilities=agent_config["capabilities"],
+                        system_message=agent_config["system_message"],
+                        project_id=action_results.get("project_id"),
+                    )
+                    if agent_result.get("success"):
+                        action_results["agents_created"].append(
+                            agent_config["agent_id"]
+                        )
+                        action_results["actions_taken"].append(
+                            f"Created {agent_config['role_name']} agent"
+                        )
+                        logger.info(f"Created agent: {agent_config['agent_id']}")
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create agent {agent_config['agent_id']}: {e}"
+                    )
+
+            # Step 3: Start workflow if agents were created
+            if action_results["agents_created"] and action_results["project_created"]:
+                try:
+                    workflow_result = self.agent_system.start_workflow(
+                        workflow_id=f"planning_{uuid.uuid4().hex[:8]}",
+                        workflow_type="sprint_planning",
+                        participants=action_results["agents_created"],
+                    )
+                    if workflow_result.get("success"):
+                        action_results["workflow_started"] = True
+                        action_results["workflow_id"] = workflow_result.get(
+                            "workflow_id"
+                        )
+                        action_results["actions_taken"].append(
+                            "Started sprint planning workflow"
+                        )
+                        logger.info("Started sprint planning workflow")
+                except Exception as e:
+                    logger.error(f"Failed to start workflow: {e}")
+
+            return action_results
+
+        except Exception as e:
+            logger.error(f"Error executing project planning actions: {e}")
+            return None
+
+    def _extract_project_name(self, user_message: str) -> Optional[str]:
+        """Extract project name from user message if provided."""
+        import re
+
+        # Look for patterns like "create ProjectName" or "build MyApp"
+        patterns = [
+            r"create\s+([A-Z][a-zA-Z0-9]*)",
+            r"build\s+([A-Z][a-zA-Z0-9]*)",
+            r"project\s+([A-Z][a-zA-Z0-9]*)",
+            r"app\s+([A-Z][a-zA-Z0-9]*)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, user_message)
+            if match:
+                return match.group(1)
+        return None
+
+    def _get_required_agents(self, project_type: str) -> List[Dict[str, Any]]:
+        """Get list of required agents for the project type."""
+        base_agents = [
+            {
+                "agent_id": "project_generator",
+                "role_name": "developer",
+                "capabilities": [
+                    "project scaffolding",
+                    "code generation",
+                    "architecture design",
+                ],
+                "system_message": "You are a project generation specialist. Create well-structured, production-ready project scaffolding.",
+            }
+        ]
+
+        if "frontend" in project_type or "web" in project_type:
+            base_agents.extend(
+                [
+                    {
+                        "agent_id": "frontend_specialist",
+                        "role_name": "developer",
+                        "capabilities": [
+                            "Vue 3",
+                            "TypeScript",
+                            "UI/UX design",
+                            "component development",
+                        ],
+                        "system_message": "You are a frontend development specialist focusing on Vue 3 and TypeScript.",
+                    },
+                    {
+                        "agent_id": "ui_designer",
+                        "role_name": "designer",
+                        "capabilities": [
+                            "UI design",
+                            "user experience",
+                            "component design",
+                        ],
+                        "system_message": "You are a UI/UX designer specializing in modern web interfaces.",
+                    },
+                ]
+            )
+
+        if "backend" in project_type or "api" in project_type:
+            base_agents.append(
+                {
+                    "agent_id": "backend_specialist",
+                    "role_name": "developer",
+                    "capabilities": [
+                        "API development",
+                        "database design",
+                        "authentication",
+                    ],
+                    "system_message": "You are a backend development specialist focusing on APIs and data architecture.",
+                }
+            )
+
+        return base_agents
+
+    def _format_action_results(self, action_results: Dict[str, Any]) -> str:
+        """Format action results for display."""
+        sections = []
+
+        if action_results.get("project_created"):
+            sections.append(
+                f"✅ **Project Created:** {action_results.get('project_id', 'Unknown')}"
+            )
+
+        if action_results.get("agents_created"):
+            agents_list = "\n".join(
+                [f"  • {agent}" for agent in action_results["agents_created"]]
+            )
+            sections.append(f"✅ **Agents Created:**\n{agents_list}")
+
+        if action_results.get("workflow_started"):
+            sections.append(
+                f"✅ **Workflow Started:** {action_results.get('workflow_id', 'Sprint Planning')}"
+            )
+
+        if action_results.get("actions_taken"):
+            actions_list = "\n".join(
+                [f"  • {action}" for action in action_results["actions_taken"]]
+            )
+            sections.append(f"🔄 **Actions Taken:**\n{actions_list}")
+
+        return "\n\n".join(sections) if sections else "🚧 **Setting up project...**"
+
+    def _format_next_steps_completed(self, action_results: Dict[str, Any]) -> str:
+        """Format next steps after actions are completed."""
+        if action_results.get("workflow_started"):
+            return """🚀 **Your project is now ACTIVE!**
+
+**Next Steps:**
+1. **Monitor Dashboard:** Check http://localhost:5000 for agent activity
+2. **Review Sprint Plan:** Agents are collaborating on project requirements
+3. **Join Collaboration:** Interact directly with agents as they work
+4. **Provide Feedback:** Guide the development process through iterations
+
+Your AI Agent System is now working on your project! 🎉"""
+        else:
+            return """⚡ **Project Setup Complete!**
+
+**What's Happening:**
+- Project created and agents deployed
+- Team is ready for collaboration
+- Dashboard updated with new agents
+
+**Next:** Initiating collaborative planning session..."""
