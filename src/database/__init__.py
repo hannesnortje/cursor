@@ -7,12 +7,11 @@ try:
     vector_store = EnhancedVectorStore()
 except Exception as e:
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.warning(f"Failed to create EnhancedVectorStore, using InMemoryVectorStore: {e}")
+    logger.warning(
+        f"Failed to create EnhancedVectorStore, using InMemoryVectorStore: {e}"
+    )
     vector_store = InMemoryVectorStore()
 
-__all__ = [
-    "EnhancedVectorStore",
-    "InMemoryVectorStore",
-    "vector_store"
-]
+__all__ = ["EnhancedVectorStore", "InMemoryVectorStore", "vector_store"]

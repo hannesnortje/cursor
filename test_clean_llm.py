@@ -5,7 +5,8 @@ Simple test for the clean LLM implementation.
 
 import sys
 import os
-sys.path.append('src')
+
+sys.path.append("src")
 
 # Test 1: Check if files exist
 print("🔍 Testing Clean LLM Implementation...")
@@ -13,10 +14,10 @@ print("=" * 60)
 
 # Check if files exist
 files_to_check = [
-    'src/llm/simple_decision_engine.py',
-    'src/agents/coordinator/simple_coordinator_agent.py',
-    'test_simple_decision_engine.py',
-    'test_simple_coordinator.py'
+    "src/llm/simple_decision_engine.py",
+    "src/agents/coordinator/simple_coordinator_agent.py",
+    "test_simple_decision_engine.py",
+    "test_simple_coordinator.py",
 ]
 
 print("📁 Checking files exist:")

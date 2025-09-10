@@ -10,6 +10,7 @@ from enum import Enum
 
 class ServiceStatus(str, Enum):
     """Service status enumeration."""
+
     OPERATIONAL = "operational"
     DEGRADED = "degraded"
     DOWN = "down"
@@ -19,6 +20,7 @@ class ServiceStatus(str, Enum):
 @dataclass
 class DashboardStatus:
     """Overall dashboard status."""
+
     status: str
     timestamp: str
     version: str
@@ -29,6 +31,7 @@ class DashboardStatus:
 @dataclass
 class SystemHealth:
     """System health information."""
+
     overall_status: ServiceStatus
     timestamp: str
     uptime: str
@@ -43,6 +46,7 @@ class SystemHealth:
 @dataclass
 class AgentStatus:
     """Individual agent status."""
+
     agent_id: str
     agent_type: str
     name: str
@@ -56,6 +60,7 @@ class AgentStatus:
 @dataclass
 class PerformanceMetrics:
     """Performance metrics data."""
+
     timestamp: str
     cache_hit_rate: float
     response_time_avg: float
@@ -69,6 +74,7 @@ class PerformanceMetrics:
 @dataclass
 class CommunicationStats:
     """Communication statistics."""
+
     timestamp: str
     total_messages: int
     messages_per_second: float
@@ -81,10 +87,11 @@ class CommunicationStats:
 @dataclass
 class DashboardConfig:
     """Dashboard configuration."""
+
     refresh_interval: int = 5000  # milliseconds
     max_data_points: int = 100
     enable_real_time: bool = True
-    chart_colors: List[str] = field(default_factory=lambda: [
-        "#667eea", "#764ba2", "#f093fb", "#f5576c", "#4facfe"
-    ])
+    chart_colors: List[str] = field(
+        default_factory=lambda: ["#667eea", "#764ba2", "#f093fb", "#f5576c", "#4facfe"]
+    )
     theme: str = "dark"

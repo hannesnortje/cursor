@@ -31,11 +31,11 @@ async def get_system_status():
     try:
         health = await mcp_service.get_system_health()
         mcp_status = mcp_service.get_mcp_status()
-        
+
         return {
             "system_health": health,
             "mcp_status": mcp_status,
-            "dashboard_status": "operational"
+            "dashboard_status": "operational",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -50,5 +50,5 @@ async def get_system_info():
         "dashboard_port": 5000,
         "mcp_server_port": 5007,
         "websocket_port": 4000,
-        "architecture": "Microservices with MCP integration"
+        "architecture": "Microservices with MCP integration",
     }

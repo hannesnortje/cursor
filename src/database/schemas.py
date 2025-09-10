@@ -8,6 +8,7 @@ from enum import Enum
 
 class DocumentType(Enum):
     """Document type enumeration."""
+
     CODE_CONTEXT = "code_context"
     CONVERSATION = "conversation"
     DOCUMENTATION = "documentation"
@@ -21,6 +22,7 @@ class DocumentType(Enum):
 
 class CodeLanguage(Enum):
     """Programming language enumeration."""
+
     PYTHON = "python"
     TYPESCRIPT = "typescript"
     JAVASCRIPT = "javascript"
@@ -42,6 +44,7 @@ class CodeLanguage(Enum):
 @dataclass
 class CodeContext:
     """Code context for vector database storage."""
+
     id: str
     file_path: str
     function_name: Optional[str] = None
@@ -54,7 +57,7 @@ class CodeContext:
     last_modified: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -69,13 +72,14 @@ class CodeContext:
             "complexity_score": self.complexity_score,
             "last_modified": self.last_modified.isoformat(),
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class Conversation:
     """Conversation data for vector database storage."""
+
     id: str
     agent_id: str
     user_id: str
@@ -88,7 +92,7 @@ class Conversation:
     llm_used: str = "unknown"
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -103,13 +107,14 @@ class Conversation:
             "confidence_score": self.confidence_score,
             "llm_used": self.llm_used,
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class Documentation:
     """Documentation data for vector database storage."""
+
     id: str
     title: str
     content: str
@@ -122,7 +127,7 @@ class Documentation:
     status: str = "draft"
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -137,13 +142,14 @@ class Documentation:
             "version": self.version,
             "status": self.status,
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class ProjectState:
     """Project state data for vector database storage."""
+
     id: str
     project_name: str
     current_tasks: List[Dict[str, Any]] = field(default_factory=list)
@@ -153,7 +159,7 @@ class ProjectState:
     performance_metrics: Dict[str, Any] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -165,13 +171,14 @@ class ProjectState:
             "recent_changes": self.recent_changes,
             "performance_metrics": self.performance_metrics,
             "last_updated": self.last_updated.isoformat(),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class GitOperation:
     """Git operation data for vector database storage."""
+
     id: str
     operation_type: str
     agent_id: str
@@ -187,7 +194,7 @@ class GitOperation:
     performance_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -205,13 +212,14 @@ class GitOperation:
             "conflicts": self.conflicts,
             "performance_metrics": self.performance_metrics,
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class CursorSession:
     """Cursor session data for vector database storage."""
+
     session_id: str
     project_path: str
     active_agents: List[str] = field(default_factory=list)
@@ -220,7 +228,7 @@ class CursorSession:
     agent_status: Dict[str, str] = field(default_factory=dict)
     llm_context: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -231,13 +239,14 @@ class CursorSession:
             "last_activity": self.last_activity.isoformat(),
             "agent_status": self.agent_status,
             "llm_context": self.llm_context,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class AgentCollaboration:
     """Agent collaboration data for vector database storage."""
+
     id: str
     collaboration_id: str
     participating_agents: List[str] = field(default_factory=list)
@@ -248,7 +257,7 @@ class AgentCollaboration:
     last_updated: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -261,13 +270,14 @@ class AgentCollaboration:
             "created_at": self.created_at.isoformat(),
             "last_updated": self.last_updated.isoformat(),
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class AgileProject:
     """Agile project data for vector database storage."""
+
     id: str
     project_name: str
     sprint_number: int = 1
@@ -284,7 +294,7 @@ class AgileProject:
     completed_story_points: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -301,13 +311,14 @@ class AgileProject:
             "team_members": self.team_members,
             "status": self.status,
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class DocumentationArtifact:
     """Documentation artifact data for vector database storage."""
+
     id: str
     title: str
     content: str
@@ -321,7 +332,7 @@ class DocumentationArtifact:
     status: str = "draft"
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: List[float] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
@@ -337,13 +348,14 @@ class DocumentationArtifact:
             "version": self.version,
             "status": self.status,
             "metadata": self.metadata,
-            "embedding": self.embedding
+            "embedding": self.embedding,
         }
 
 
 @dataclass
 class TeamMember:
     """Team member information."""
+
     member_id: str
     name: str
     role: str
@@ -357,6 +369,7 @@ class TeamMember:
 @dataclass
 class UserStory:
     """User story information."""
+
     story_id: str
     project_id: str
     title: str
@@ -377,6 +390,7 @@ class UserStory:
 @dataclass
 class Sprint:
     """Sprint information."""
+
     sprint_id: str
     project_id: str
     name: str
@@ -394,6 +408,7 @@ class Sprint:
 @dataclass
 class Task:
     """Task information."""
+
     task_id: str
     story_id: str
     title: str
@@ -412,58 +427,61 @@ COLLECTION_CONFIGS = {
     "code_context": {
         "vector_size": 1536,
         "distance": "Cosine",
-        "description": "Code context and snippets"
+        "description": "Code context and snippets",
     },
     "conversations": {
         "vector_size": 1536,
         "distance": "Cosine",
-        "description": "Agent conversations and interactions"
+        "description": "Agent conversations and interactions",
     },
     "documentation": {
         "vector_size": 1536,
         "distance": "Cosine",
-        "description": "Project documentation and guides"
+        "description": "Project documentation and guides",
     },
     "project_state": {
         "vector_size": 512,
         "distance": "Cosine",
-        "description": "Project state and metadata"
+        "description": "Project state and metadata",
     },
     "git_operations": {
         "vector_size": 512,
         "distance": "Cosine",
-        "description": "Git operations and history"
+        "description": "Git operations and history",
     },
     "cursor_sessions": {
         "vector_size": 512,
         "distance": "Cosine",
-        "description": "Cursor IDE session data"
+        "description": "Cursor IDE session data",
     },
     "agent_collaboration": {
         "vector_size": 1024,
         "distance": "Cosine",
-        "description": "Agent collaboration context"
+        "description": "Agent collaboration context",
     },
     "agile_projects": {
         "vector_size": 1024,
         "distance": "Cosine",
-        "description": "Agile project management data"
+        "description": "Agile project management data",
     },
     "documentation_artifacts": {
         "vector_size": 1536,
         "distance": "Cosine",
-        "description": "Documentation artifacts and versions"
-    }
+        "description": "Documentation artifacts and versions",
+    },
 }
 
 
 def get_collection_config(collection_name: str) -> Dict[str, Any]:
     """Get configuration for a specific collection."""
-    return COLLECTION_CONFIGS.get(collection_name, {
-        "vector_size": 1536,
-        "distance": "Cosine",
-        "description": "General purpose collection"
-    })
+    return COLLECTION_CONFIGS.get(
+        collection_name,
+        {
+            "vector_size": 1536,
+            "distance": "Cosine",
+            "description": "General purpose collection",
+        },
+    )
 
 
 def get_all_collection_names() -> List[str]:

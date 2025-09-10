@@ -10,6 +10,7 @@ import uuid
 @dataclass
 class CrossChatEvent:
     """Cross-chat event for broadcasting across chat sessions."""
+
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: str = "message"
     source_chat: str = ""
@@ -19,7 +20,7 @@ class CrossChatEvent:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     priority: int = 2
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -31,13 +32,14 @@ class CrossChatEvent:
             "target_chats": self.target_chats,
             "timestamp": self.timestamp,
             "priority": self.priority,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class CrossChatMessage:
     """Cross-chat message for routing and delivery."""
+
     message_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     sender: str = ""
     sender_type: str = "agent"
@@ -47,7 +49,7 @@ class CrossChatMessage:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     priority: int = 2
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -59,13 +61,14 @@ class CrossChatMessage:
             "target_chats": self.target_chats,
             "timestamp": self.timestamp,
             "priority": self.priority,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class WebSocketMessage:
     """WebSocket message for real-time communication."""
+
     message_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     sender: str = ""
     recipient: str = ""
@@ -74,7 +77,7 @@ class WebSocketMessage:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     session_id: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -85,5 +88,5 @@ class WebSocketMessage:
             "content": self.content,
             "timestamp": self.timestamp,
             "session_id": self.session_id,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }

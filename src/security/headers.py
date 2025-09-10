@@ -3,6 +3,7 @@
 import os
 from typing import Dict, Any, List
 
+
 class SecurityHeaders:
     """Security headers management for HTTP responses."""
 
@@ -15,38 +16,34 @@ class SecurityHeaders:
         return {
             # Content Security Policy
             "Content-Security-Policy": os.getenv(
-                "CSP_HEADER", 
-                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'"
+                "CSP_HEADER",
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'",
             ),
-            
             # XSS Protection
             "X-XSS-Protection": os.getenv("XSS_PROTECTION_HEADER", "1; mode=block"),
-            
             # Content Type Options
-            "X-Content-Type-Options": os.getenv("CONTENT_TYPE_OPTIONS_HEADER", "nosniff"),
-            
+            "X-Content-Type-Options": os.getenv(
+                "CONTENT_TYPE_OPTIONS_HEADER", "nosniff"
+            ),
             # Frame Options
             "X-Frame-Options": os.getenv("FRAME_OPTIONS_HEADER", "DENY"),
-            
             # Strict Transport Security
             "Strict-Transport-Security": os.getenv(
-                "HSTS_HEADER", 
-                "max-age=31536000; includeSubDomains; preload"
+                "HSTS_HEADER", "max-age=31536000; includeSubDomains; preload"
             ),
-            
             # Referrer Policy
-            "Referrer-Policy": os.getenv("REFERRER_POLICY_HEADER", "strict-origin-when-cross-origin"),
-            
+            "Referrer-Policy": os.getenv(
+                "REFERRER_POLICY_HEADER", "strict-origin-when-cross-origin"
+            ),
             # Cross-Origin Policies
             "Cross-Origin-Embedder-Policy": os.getenv("COEP_HEADER", "require-corp"),
             "Cross-Origin-Opener-Policy": os.getenv("COOP_HEADER", "same-origin"),
             "Cross-Origin-Resource-Policy": os.getenv("CORP_HEADER", "same-origin"),
-            
             # Permissions Policy
             "Permissions-Policy": os.getenv(
                 "PERMISSIONS_POLICY_HEADER",
-                "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=()"
-            )
+                "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=()",
+            ),
         }
 
     def get_headers(self) -> Dict[str, str]:
@@ -63,14 +60,14 @@ class SecurityHeaders:
             "valid": True,
             "issues": [],
             "recommendations": [],
-            "header_count": len(self.headers)
+            "header_count": len(self.headers),
         }
 
         # Check for required headers
         required_headers = [
             "X-XSS-Protection",
-            "X-Content-Type-Options", 
-            "X-Frame-Options"
+            "X-Content-Type-Options",
+            "X-Frame-Options",
         ]
 
         for header in required_headers:
@@ -80,11 +77,15 @@ class SecurityHeaders:
 
         # Check CSP header
         if "Content-Security-Policy" not in self.headers:
-            validation_result["recommendations"].append("Consider adding Content-Security-Policy header")
+            validation_result["recommendations"].append(
+                "Consider adding Content-Security-Policy header"
+            )
 
         # Check HSTS header
         if "Strict-Transport-Security" not in self.headers:
-            validation_result["recommendations"].append("Consider adding Strict-Transport-Security header for HTTPS")
+            validation_result["recommendations"].append(
+                "Consider adding Strict-Transport-Security header for HTTPS"
+            )
 
         return validation_result
 

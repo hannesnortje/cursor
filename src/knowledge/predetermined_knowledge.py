@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class KnowledgeItem:
     """Structure for predetermined knowledge items."""
+
     title: str
     content: str
     category: str
@@ -21,7 +22,7 @@ class KnowledgeItem:
     source: str
     version: str
     last_updated: str
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert knowledge item to dictionary."""
         return {
@@ -33,19 +34,19 @@ class KnowledgeItem:
             "priority": self.priority,
             "source": self.source,
             "version": self.version,
-            "last_updated": self.last_updated
+            "last_updated": self.last_updated,
         }
 
 
 class PredeterminedKnowledgeBase:
     """Comprehensive predetermined knowledge base for project initialization."""
-    
+
     def __init__(self):
         self.knowledge_bases = {}
         self.loading_enabled = True
         self.fallback_mode = False
         self.initialization_status = "not_initialized"
-        
+
         try:
             self._initialize_knowledge_bases()
             self.initialization_status = "initialized"
@@ -55,26 +56,28 @@ class PredeterminedKnowledgeBase:
             self.fallback_mode = True
             self.initialization_status = "fallback_mode"
             logger.info("Using fallback knowledge base")
-    
+
     def _initialize_knowledge_bases(self):
         """Initialize all knowledge bases."""
         if not self.loading_enabled:
             logger.info("Knowledge loading disabled - using fallback mode")
             self.fallback_mode = True
             return
-        
+
         self.knowledge_bases = {
             "pdca": self._get_pdca_knowledge(),
             "agile": self._get_agile_knowledge(),
             "code_quality": self._get_code_quality_knowledge(),
             "security": self._get_security_knowledge(),
             "testing": self._get_testing_knowledge(),
-            "documentation": self._get_documentation_knowledge()
+            "documentation": self._get_documentation_knowledge(),
         }
-        
+
         total_items = sum(len(items) for items in self.knowledge_bases.values())
-        logger.info(f"Initialized {len(self.knowledge_bases)} knowledge domains with {total_items} total items")
-    
+        logger.info(
+            f"Initialized {len(self.knowledge_bases)} knowledge domains with {total_items} total items"
+        )
+
     def _get_pdca_knowledge(self) -> List[KnowledgeItem]:
         """Get PDCA Framework knowledge."""
         return [
@@ -87,7 +90,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="ISO 9001",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="PDCA Planning Phase",
@@ -98,7 +101,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Quality Management",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="PDCA Implementation Phase",
@@ -109,7 +112,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Quality Management",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="PDCA Check Phase",
@@ -120,7 +123,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Quality Management",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="PDCA Act Phase",
@@ -131,10 +134,10 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Quality Management",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
-            )
+                last_updated=datetime.now().isoformat(),
+            ),
         ]
-    
+
     def _get_agile_knowledge(self) -> List[KnowledgeItem]:
         """Get Agile/Scrum knowledge."""
         return [
@@ -147,7 +150,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Agile Manifesto",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Scrum Framework",
@@ -158,7 +161,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Scrum Guide",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="User Story Writing",
@@ -169,7 +172,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Agile Best Practices",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Sprint Planning",
@@ -180,7 +183,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Scrum Guide",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Sprint Retrospective",
@@ -191,10 +194,10 @@ class PredeterminedKnowledgeBase:
                 priority="medium",
                 source="Scrum Guide",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
-            )
+                last_updated=datetime.now().isoformat(),
+            ),
         ]
-    
+
     def _get_code_quality_knowledge(self) -> List[KnowledgeItem]:
         """Get Code Quality knowledge."""
         return [
@@ -207,7 +210,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Clean Code",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Clean Code Practices",
@@ -218,7 +221,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Clean Code",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Code Review Guidelines",
@@ -229,7 +232,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Best Practices",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Refactoring Techniques",
@@ -240,10 +243,10 @@ class PredeterminedKnowledgeBase:
                 priority="medium",
                 source="Refactoring",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
-            )
+                last_updated=datetime.now().isoformat(),
+            ),
         ]
-    
+
     def _get_security_knowledge(self) -> List[KnowledgeItem]:
         """Get Security knowledge."""
         return [
@@ -256,7 +259,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="OWASP",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Secure Coding Practices",
@@ -267,7 +270,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Security Best Practices",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Security Testing",
@@ -278,10 +281,10 @@ class PredeterminedKnowledgeBase:
                 priority="medium",
                 source="Security Testing",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
-            )
+                last_updated=datetime.now().isoformat(),
+            ),
         ]
-    
+
     def _get_testing_knowledge(self) -> List[KnowledgeItem]:
         """Get Testing knowledge."""
         return [
@@ -294,7 +297,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Testing Best Practices",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Test-Driven Development",
@@ -305,7 +308,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="TDD Best Practices",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Test Coverage Metrics",
@@ -316,7 +319,7 @@ class PredeterminedKnowledgeBase:
                 priority="medium",
                 source="Testing Metrics",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Automated Testing",
@@ -327,10 +330,10 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Testing Automation",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
-            )
+                last_updated=datetime.now().isoformat(),
+            ),
         ]
-    
+
     def _get_documentation_knowledge(self) -> List[KnowledgeItem]:
         """Get Documentation knowledge."""
         return [
@@ -343,7 +346,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="Documentation Best Practices",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="API Documentation",
@@ -354,7 +357,7 @@ class PredeterminedKnowledgeBase:
                 priority="high",
                 source="API Documentation",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
+                last_updated=datetime.now().isoformat(),
             ),
             KnowledgeItem(
                 title="Code Documentation",
@@ -365,34 +368,43 @@ class PredeterminedKnowledgeBase:
                 priority="medium",
                 source="Code Documentation",
                 version="1.0",
-                last_updated=datetime.now().isoformat()
-            )
+                last_updated=datetime.now().isoformat(),
+            ),
         ]
-    
+
     def get_knowledge_for_domain(self, domain: str) -> List[KnowledgeItem]:
         """Get knowledge items for a specific domain."""
         if self.fallback_mode:
             return self._get_fallback_knowledge(domain)
         return self.knowledge_bases.get(domain, [])
-    
+
     def get_all_knowledge(self) -> Dict[str, List[KnowledgeItem]]:
         """Get all knowledge bases."""
         if self.fallback_mode:
             return self._get_fallback_all_knowledge()
         return self.knowledge_bases
-    
+
     def get_available_domains(self) -> List[str]:
         """Get list of available knowledge domains."""
         if self.fallback_mode:
-            return ["pdca", "agile", "code_quality", "security", "testing", "documentation"]
+            return [
+                "pdca",
+                "agile",
+                "code_quality",
+                "security",
+                "testing",
+                "documentation",
+            ]
         return list(self.knowledge_bases.keys())
-    
-    def search_knowledge(self, query: str, domain: Optional[str] = None) -> List[KnowledgeItem]:
+
+    def search_knowledge(
+        self, query: str, domain: Optional[str] = None
+    ) -> List[KnowledgeItem]:
         """Search knowledge items by content."""
         try:
             results = []
             query_lower = query.lower()
-            
+
             if domain:
                 knowledge_items = self.get_knowledge_for_domain(domain)
             else:
@@ -400,19 +412,21 @@ class PredeterminedKnowledgeBase:
                 knowledge_items = []
                 for items in all_knowledge.values():
                     knowledge_items.extend(items)
-            
+
             for item in knowledge_items:
-                if (query_lower in item.title.lower() or 
-                    query_lower in item.content.lower() or 
-                    any(query_lower in tag.lower() for tag in item.tags)):
+                if (
+                    query_lower in item.title.lower()
+                    or query_lower in item.content.lower()
+                    or any(query_lower in tag.lower() for tag in item.tags)
+                ):
                     results.append(item)
-            
+
             return results
-            
+
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return []
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get knowledge base statistics."""
         try:
@@ -421,20 +435,22 @@ class PredeterminedKnowledgeBase:
                     "total_domains": 6,
                     "total_items": 24,
                     "fallback_mode": True,
-                    "initialization_status": self.initialization_status
+                    "initialization_status": self.initialization_status,
                 }
-            
+
             total_items = sum(len(items) for items in self.knowledge_bases.values())
-            domain_counts = {domain: len(items) for domain, items in self.knowledge_bases.items()}
-            
+            domain_counts = {
+                domain: len(items) for domain, items in self.knowledge_bases.items()
+            }
+
             return {
                 "total_domains": len(self.knowledge_bases),
                 "total_items": total_items,
                 "domain_counts": domain_counts,
                 "fallback_mode": False,
-                "initialization_status": self.initialization_status
+                "initialization_status": self.initialization_status,
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return {
@@ -442,71 +458,74 @@ class PredeterminedKnowledgeBase:
                 "total_items": 0,
                 "fallback_mode": True,
                 "initialization_status": "error",
-                "error": str(e)
+                "error": str(e),
             }
-    
-    def initialize_project(self, project_id: str, domains: List[str] = None) -> Dict[str, Any]:
+
+    def initialize_project(
+        self, project_id: str, domains: List[str] = None
+    ) -> Dict[str, Any]:
         """Initialize project with predetermined knowledge."""
         try:
             if domains is None:
                 domains = self.get_available_domains()
-            
+
             project_knowledge = {}
             for domain in domains:
                 domain_knowledge = self.get_knowledge_for_domain(domain)
-                project_knowledge[domain] = [item.to_dict() for item in domain_knowledge]
-            
-            logger.info(f"Initialized project {project_id} with {len(domains)} knowledge domains")
-            
+                project_knowledge[domain] = [
+                    item.to_dict() for item in domain_knowledge
+                ]
+
+            logger.info(
+                f"Initialized project {project_id} with {len(domains)} knowledge domains"
+            )
+
             return {
                 "success": True,
                 "project_id": project_id,
                 "domains_initialized": domains,
                 "knowledge_items": project_knowledge,
-                "total_items": sum(len(items) for items in project_knowledge.values())
+                "total_items": sum(len(items) for items in project_knowledge.values()),
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize project: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
+            return {"success": False, "error": str(e)}
+
     def get_by_category(self, category: str) -> List[KnowledgeItem]:
         """Get knowledge items by category."""
         try:
             results = []
             all_knowledge = self.get_all_knowledge()
-            
+
             for items in all_knowledge.values():
                 for item in items:
                     if item.category == category:
                         results.append(item)
-            
+
             return results
-            
+
         except Exception as e:
             logger.error(f"Failed to get by category: {e}")
             return []
-    
+
     def get_by_priority(self, priority: str) -> List[KnowledgeItem]:
         """Get knowledge items by priority."""
         try:
             results = []
             all_knowledge = self.get_all_knowledge()
-            
+
             for items in all_knowledge.values():
                 for item in items:
                     if item.priority == priority:
                         results.append(item)
-            
+
             return results
-            
+
         except Exception as e:
             logger.error(f"Failed to get by priority: {e}")
             return []
-    
+
     def _get_fallback_knowledge(self, domain: str) -> List[KnowledgeItem]:
         """Get fallback knowledge for a domain."""
         fallback_items = {
@@ -520,7 +539,7 @@ class PredeterminedKnowledgeBase:
                     priority="high",
                     source="Fallback",
                     version="1.0",
-                    last_updated=datetime.now().isoformat()
+                    last_updated=datetime.now().isoformat(),
                 )
             ],
             "agile": [
@@ -533,24 +552,24 @@ class PredeterminedKnowledgeBase:
                     priority="high",
                     source="Fallback",
                     version="1.0",
-                    last_updated=datetime.now().isoformat()
+                    last_updated=datetime.now().isoformat(),
                 )
-            ]
+            ],
         }
         return fallback_items.get(domain, [])
-    
+
     def _get_fallback_all_knowledge(self) -> Dict[str, List[KnowledgeItem]]:
         """Get all fallback knowledge."""
         return {
-            domain: self._get_fallback_knowledge(domain) 
+            domain: self._get_fallback_knowledge(domain)
             for domain in self.get_available_domains()
         }
-    
+
     def enable_loading(self):
         """Enable knowledge loading."""
         self.loading_enabled = True
         logger.info("Knowledge loading enabled")
-    
+
     def disable_loading(self):
         """Disable knowledge loading."""
         self.loading_enabled = False
@@ -560,6 +579,7 @@ class PredeterminedKnowledgeBase:
 
 # Global instance
 _predetermined_knowledge = None
+
 
 def get_predetermined_knowledge() -> PredeterminedKnowledgeBase:
     """Get the global predetermined knowledge instance."""

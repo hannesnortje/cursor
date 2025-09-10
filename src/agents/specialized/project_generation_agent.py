@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProjectTemplate:
     """Project template configuration."""
+
     template_id: str
     name: str
     description: str
@@ -36,6 +37,7 @@ class ProjectTemplate:
 @dataclass
 class ProjectStructure:
     """Generated project structure."""
+
     project_id: str
     project_name: str
     language: str
@@ -52,7 +54,7 @@ class ProjectStructure:
 
 class ProjectGenerationAgent(BaseAgent):
     """Project Generation Agent for multi-language project creation."""
-    
+
     def __init__(self, agent_id: str = None, name: str = "Project Generation Agent"):
         super().__init__(
             agent_id=agent_id or f"project_gen_{uuid.uuid4().hex[:8]}",
@@ -61,23 +63,23 @@ class ProjectGenerationAgent(BaseAgent):
             capabilities=[
                 AgentCapability(
                     name="project_generation",
-                    description="Generate project structures for multiple programming languages"
+                    description="Generate project structures for multiple programming languages",
                 ),
                 AgentCapability(
                     name="build_system_setup",
-                    description="Create build configurations and dependency management"
+                    description="Create build configurations and dependency management",
                 ),
                 AgentCapability(
                     name="development_workflow",
-                    description="Set up testing, CI/CD, and code quality tools"
+                    description="Set up testing, CI/CD, and code quality tools",
                 ),
                 AgentCapability(
                     name="template_management",
-                    description="Manage and customize project templates"
-                )
-            ]
+                    description="Manage and customize project templates",
+                ),
+            ],
         )
-        
+
         # Project generation specific attributes
         self.project_templates: Dict[str, ProjectTemplate] = {}
         self.generated_projects: Dict[str, ProjectStructure] = {}
@@ -88,39 +90,41 @@ class ProjectGenerationAgent(BaseAgent):
             "go": ["web", "api", "cli", "library", "microservice"],
             "rust": ["web", "api", "cli", "library", "systems"],
             "typescript": ["web", "api", "cli", "library", "fullstack"],
-            "javascript": ["web", "api", "cli", "library", "fullstack"]
+            "javascript": ["web", "api", "cli", "library", "fullstack"],
         }
-        
+
         # Initialize default templates
         self._initialize_default_templates()
-        
-        logger.info(f"Project Generation Agent {self.agent_id} initialized with capabilities: {[cap.name for cap in self.capabilities]}")
-    
+
+        logger.info(
+            f"Project Generation Agent {self.agent_id} initialized with capabilities: {[cap.name for cap in self.capabilities]}"
+        )
+
     def _initialize_default_templates(self):
         """Initialize default project templates for various languages."""
         # Python templates
         self._add_python_templates()
-        
+
         # C++ templates
         self._add_cpp_templates()
-        
+
         # Java templates
         self._add_java_templates()
-        
+
         # Go templates
         self._add_go_templates()
-        
+
         # Rust templates
         self._add_rust_templates()
-        
+
         # TypeScript templates
         self._add_typescript_templates()
-        
+
         # Vanilla/minimal templates
         self._add_vanilla_templates()
-        
+
         logger.info(f"Initialized {len(self.project_templates)} project templates")
-    
+
     def _add_python_templates(self):
         """Add Python project templates."""
         # Flask API template
@@ -140,11 +144,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "requirements.txt", "type": "dependencies"},
                 {"path": "app.py", "type": "main"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["python_flask_api"] = flask_template
-        
+
         # Django web template
         django_template = ProjectTemplate(
             template_id="python_django_web",
@@ -162,11 +166,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "requirements.txt", "type": "dependencies"},
                 {"path": "manage.py", "type": "main"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["python_django_web"] = django_template
-        
+
         # Data Science template
         data_science_template = ProjectTemplate(
             template_id="python_data_science",
@@ -184,11 +188,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "requirements.txt", "type": "dependencies"},
                 {"path": "notebooks/", "type": "directory"},
                 {"path": "src/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["python_data_science"] = data_science_template
-    
+
     def _add_cpp_templates(self):
         """Add C++ project templates."""
         # CMake library template
@@ -209,11 +213,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "src/", "type": "directory"},
                 {"path": "include/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["cpp_cmake_library"] = cmake_library_template
-        
+
         # Makefile application template
         makefile_app_template = ProjectTemplate(
             template_id="cpp_makefile_app",
@@ -231,11 +235,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "Makefile", "type": "build"},
                 {"path": "src/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["cpp_makefile_app"] = makefile_app_template
-    
+
     def _add_java_templates(self):
         """Add Java project templates."""
         # Spring Boot API template
@@ -255,11 +259,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "pom.xml", "type": "build"},
                 {"path": "src/main/java/", "type": "directory"},
                 {"path": "src/test/java/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["java_spring_api"] = spring_api_template
-        
+
         # Gradle library template
         gradle_library_template = ProjectTemplate(
             template_id="java_gradle_library",
@@ -277,11 +281,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "build.gradle", "type": "build"},
                 {"path": "src/main/java/", "type": "directory"},
                 {"path": "src/test/java/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["java_gradle_library"] = gradle_library_template
-    
+
     def _add_go_templates(self):
         """Add Go project templates."""
         # Go web service template
@@ -303,11 +307,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "main.go", "type": "main"},
                 {"path": "cmd/", "type": "directory"},
                 {"path": "internal/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["go_web_service"] = go_web_template
-        
+
         # Go CLI tool template
         go_cli_template = ProjectTemplate(
             template_id="go_cli_tool",
@@ -326,11 +330,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "main.go", "type": "main"},
                 {"path": "cmd/", "type": "directory"},
                 {"path": "internal/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["go_cli_tool"] = go_cli_template
-    
+
     def _add_rust_templates(self):
         """Add Rust project templates."""
         # Rust library template
@@ -350,11 +354,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "Cargo.toml", "type": "build"},
                 {"path": "src/lib.rs", "type": "main"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["rust_library"] = rust_library_template
-        
+
         # Rust web service template
         rust_web_template = ProjectTemplate(
             template_id="rust_web_service",
@@ -372,11 +376,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "Cargo.toml", "type": "build"},
                 {"path": "src/main.rs", "type": "main"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["rust_web_service"] = rust_web_template
-    
+
     def _add_typescript_templates(self):
         """Add TypeScript project templates."""
         # Vanilla TypeScript template (no framework)
@@ -397,11 +401,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "tsconfig.json", "type": "config"},
                 {"path": "src/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["typescript_vanilla"] = vanilla_ts_template
-        
+
         # Node.js API template
         node_api_template = ProjectTemplate(
             template_id="typescript_node_api",
@@ -420,11 +424,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "tsconfig.json", "type": "config"},
                 {"path": "src/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["typescript_node_api"] = node_api_template
-        
+
         # React TypeScript template
         react_ts_template = ProjectTemplate(
             template_id="typescript_react_app",
@@ -443,11 +447,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "tsconfig.json", "type": "config"},
                 {"path": "src/", "type": "directory"},
                 {"path": "public/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["typescript_react_app"] = react_ts_template
-    
+
     def _add_vanilla_templates(self):
         """Add vanilla/minimal project templates without frameworks."""
         # Vanilla Python template
@@ -467,11 +471,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "requirements.txt", "type": "dependencies"},
                 {"path": "src/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["python_vanilla"] = vanilla_python_template
-        
+
         # Vanilla C++ template
         vanilla_cpp_template = ProjectTemplate(
             template_id="cpp_vanilla",
@@ -490,11 +494,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "src/", "type": "directory"},
                 {"path": "include/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["cpp_vanilla"] = vanilla_cpp_template
-        
+
         # Vanilla Go template
         vanilla_go_template = ProjectTemplate(
             template_id="go_vanilla",
@@ -512,11 +516,11 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "go.mod", "type": "build"},
                 {"path": "src/", "type": "directory"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["go_vanilla"] = vanilla_go_template
-        
+
         # Vanilla Rust template
         vanilla_rust_template = ProjectTemplate(
             template_id="rust_vanilla",
@@ -534,16 +538,16 @@ class ProjectGenerationAgent(BaseAgent):
                 {"path": "Cargo.toml", "type": "build"},
                 {"path": "src/lib.rs", "type": "main"},
                 {"path": "tests/", "type": "directory"},
-                {"path": "README.md", "type": "documentation"}
-            ]
+                {"path": "README.md", "type": "documentation"},
+            ],
         )
         self.project_templates["rust_vanilla"] = vanilla_rust_template
-    
+
     async def _execute_task_impl(self, task) -> Dict[str, Any]:
         """Execute task implementation - required by BaseAgent."""
         try:
             logger.info(f"Executing task {task.id} in Project Generation Agent")
-            
+
             # Handle different task types
             if task.type == "generate_project":
                 return await self._handle_generate_project_task(task)
@@ -552,107 +556,105 @@ class ProjectGenerationAgent(BaseAgent):
             elif task.type == "customize_template":
                 return await self._handle_customize_template_task(task)
             else:
-                return {
-                    "success": False,
-                    "error": f"Unknown task type: {task.type}"
-                }
-                
+                return {"success": False, "error": f"Unknown task type: {task.type}"}
+
         except Exception as e:
             logger.error(f"Error executing task {task.id}: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
+            return {"success": False, "error": str(e)}
+
     async def _handle_generate_project_task(self, task) -> Dict[str, Any]:
         """Handle project generation task."""
         template_id = task.metadata.get("template_id")
         project_name = task.metadata.get("project_name")
         target_path = task.metadata.get("target_path", ".")
         customizations = task.metadata.get("customizations", {})
-        
-        return self.generate_project(template_id, project_name, target_path, customizations)
-    
+
+        return self.generate_project(
+            template_id, project_name, target_path, customizations
+        )
+
     async def _handle_list_templates_task(self, task) -> Dict[str, Any]:
         """Handle list templates task."""
         language_filter = task.metadata.get("language")
         category_filter = task.metadata.get("category")
-        
+
         return self.list_project_templates(language_filter, category_filter)
-    
+
     async def _handle_customize_template_task(self, task) -> Dict[str, Any]:
         """Handle template customization task."""
         template_id = task.metadata.get("template_id")
         customizations = task.metadata.get("customizations", {})
-        
+
         return self.customize_project_template(template_id, customizations)
-    
-    def list_project_templates(self, language: Optional[str] = None, 
-                             category: Optional[str] = None) -> Dict[str, Any]:
+
+    def list_project_templates(
+        self, language: Optional[str] = None, category: Optional[str] = None
+    ) -> Dict[str, Any]:
         """List available project templates with optional filtering."""
         try:
             templates = list(self.project_templates.values())
-            
+
             # Apply language filter
             if language:
-                templates = [t for t in templates if t.language.lower() == language.lower()]
-            
+                templates = [
+                    t for t in templates if t.language.lower() == language.lower()
+                ]
+
             # Apply category filter
             if category:
-                templates = [t for t in templates if t.category.lower() == category.lower()]
-            
+                templates = [
+                    t for t in templates if t.category.lower() == category.lower()
+                ]
+
             # Convert to serializable format
             template_list = []
             for template in templates:
-                template_list.append({
-                    "template_id": template.template_id,
-                    "name": template.name,
-                    "description": template.description,
-                    "language": template.language,
-                    "framework": template.framework,
-                    "category": template.category,
-                    "tags": template.tags,
-                    "build_system": template.build_system,
-                    "testing_framework": template.testing_framework
-                })
-            
+                template_list.append(
+                    {
+                        "template_id": template.template_id,
+                        "name": template.name,
+                        "description": template.description,
+                        "language": template.language,
+                        "framework": template.framework,
+                        "category": template.category,
+                        "tags": template.tags,
+                        "build_system": template.build_system,
+                        "testing_framework": template.testing_framework,
+                    }
+                )
+
             logger.info(f"Listed {len(template_list)} project templates")
-            
+
             return {
                 "success": True,
                 "message": f"Found {len(template_list)} project templates",
                 "templates": template_list,
                 "total_count": len(template_list),
-                "filters_applied": {
-                    "language": language,
-                    "category": category
-                }
+                "filters_applied": {"language": language, "category": category},
             }
-            
+
         except Exception as e:
             logger.error(f"Error listing project templates: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    def generate_project(self, template_id: str, project_name: str, 
-                        target_path: str = ".", 
-                        customizations: Dict[str, Any] = None) -> Dict[str, Any]:
+            return {"success": False, "error": str(e)}
+
+    def generate_project(
+        self,
+        template_id: str,
+        project_name: str,
+        target_path: str = ".",
+        customizations: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
         """Generate a new project from a template."""
         try:
             if template_id not in self.project_templates:
-                return {
-                    "success": False,
-                    "error": f"Template {template_id} not found"
-                }
-            
+                return {"success": False, "error": f"Template {template_id} not found"}
+
             template = self.project_templates[template_id]
             customizations = customizations or {}
-            
+
             # Create project ID
             project_id = f"{template.language}_{project_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            
+
             # Create project structure
             project_structure = ProjectStructure(
                 project_id=project_id,
@@ -663,15 +665,17 @@ class ProjectGenerationAgent(BaseAgent):
                 metadata={
                     "template_id": template_id,
                     "customizations": customizations,
-                    "generated_by": self.agent_id
-                }
+                    "generated_by": self.agent_id,
+                },
             )
-            
+
             # Store project structure
             self.generated_projects[project_id] = project_structure
-            
-            logger.info(f"Generated project {project_name} using template {template_id}")
-            
+
+            logger.info(
+                f"Generated project {project_name} using template {template_id}"
+            )
+
             return {
                 "success": True,
                 "message": f"Project '{project_name}' generated successfully using {template.name} template",
@@ -685,29 +689,24 @@ class ProjectGenerationAgent(BaseAgent):
                 "project_structure": {
                     "base_path": target_path,
                     "files_to_create": template.files,
-                    "dependencies": template.dependencies
-                }
+                    "dependencies": template.dependencies,
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"Error generating project: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    def customize_project_template(self, template_id: str, 
-                                 customizations: Dict[str, Any]) -> Dict[str, Any]:
+            return {"success": False, "error": str(e)}
+
+    def customize_project_template(
+        self, template_id: str, customizations: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Customize an existing project template."""
         try:
             if template_id not in self.project_templates:
-                return {
-                    "success": False,
-                    "error": f"Template {template_id} not found"
-                }
-            
+                return {"success": False, "error": f"Template {template_id} not found"}
+
             template = self.project_templates[template_id]
-            
+
             # Create customized template
             customized_template = ProjectTemplate(
                 template_id=f"{template_id}_custom_{uuid.uuid4().hex[:8]}",
@@ -718,17 +717,22 @@ class ProjectGenerationAgent(BaseAgent):
                 category=template.category,
                 tags=template.tags + ["customized"],
                 files=template.files,
-                dependencies=template.dependencies + customizations.get("additional_dependencies", []),
+                dependencies=template.dependencies
+                + customizations.get("additional_dependencies", []),
                 build_system=template.build_system,
                 testing_framework=template.testing_framework,
-                ci_cd_template=template.ci_cd_template
+                ci_cd_template=template.ci_cd_template,
             )
-            
+
             # Store customized template
-            self.project_templates[customized_template.template_id] = customized_template
-            
-            logger.info(f"Customized template {template_id} with {len(customizations)} customizations")
-            
+            self.project_templates[customized_template.template_id] = (
+                customized_template
+            )
+
+            logger.info(
+                f"Customized template {template_id} with {len(customizations)} customizations"
+            )
+
             return {
                 "success": True,
                 "message": f"Template {template.name} customized successfully",
@@ -737,28 +741,22 @@ class ProjectGenerationAgent(BaseAgent):
                 "new_template": {
                     "name": customized_template.name,
                     "description": customized_template.description,
-                    "dependencies": customized_template.dependencies
-                }
+                    "dependencies": customized_template.dependencies,
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"Error customizing template: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
+            return {"success": False, "error": str(e)}
+
     def get_project_status(self, project_id: str) -> Dict[str, Any]:
         """Get status of a generated project."""
         try:
             if project_id not in self.generated_projects:
-                return {
-                    "success": False,
-                    "error": f"Project {project_id} not found"
-                }
-            
+                return {"success": False, "error": f"Project {project_id} not found"}
+
             project = self.generated_projects[project_id]
-            
+
             return {
                 "success": True,
                 "message": f"Project status retrieved successfully for {project.project_name}",
@@ -774,25 +772,28 @@ class ProjectGenerationAgent(BaseAgent):
                     "test_files": project.test_files,
                     "config_files": project.config_files,
                     "created_at": project.created_at.isoformat(),
-                    "metadata": project.metadata
-                }
+                    "metadata": project.metadata,
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting project status: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    def create_custom_project(self, project_name: str, language: str, 
-                             custom_structure: Dict[str, Any] = None,
-                             target_path: str = ".") -> Dict[str, Any]:
+            return {"success": False, "error": str(e)}
+
+    def create_custom_project(
+        self,
+        project_name: str,
+        language: str,
+        custom_structure: Dict[str, Any] = None,
+        target_path: str = ".",
+    ) -> Dict[str, Any]:
         """Create a completely custom project with user-defined structure."""
         try:
             # Create project ID
-            project_id = f"{language}_{project_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            
+            project_id = (
+                f"{language}_{project_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
+
             # Default custom structure if none provided
             if custom_structure is None:
                 custom_structure = {
@@ -800,13 +801,13 @@ class ProjectGenerationAgent(BaseAgent):
                     "files": [
                         {"path": "README.md", "type": "documentation"},
                         {"path": "src/main.py", "type": "main"},
-                        {"path": "tests/test_main.py", "type": "test"}
+                        {"path": "tests/test_main.py", "type": "test"},
                     ],
                     "dependencies": [],
                     "build_system": "custom",
-                    "testing_framework": "custom"
+                    "testing_framework": "custom",
                 }
-            
+
             # Create project structure
             project_structure = ProjectStructure(
                 project_id=project_id,
@@ -817,15 +818,15 @@ class ProjectGenerationAgent(BaseAgent):
                 metadata={
                     "custom_structure": custom_structure,
                     "generated_by": self.agent_id,
-                    "is_custom": True
-                }
+                    "is_custom": True,
+                },
             )
-            
+
             # Store project structure
             self.generated_projects[project_id] = project_structure
-            
+
             logger.info(f"Created custom project {project_name} in {language}")
-            
+
             return {
                 "success": True,
                 "message": f"Custom project '{project_name}' created successfully in {language}",
@@ -834,48 +835,46 @@ class ProjectGenerationAgent(BaseAgent):
                 "language": language,
                 "framework": "custom",
                 "build_system": custom_structure.get("build_system", "custom"),
-                "testing_framework": custom_structure.get("testing_framework", "custom"),
+                "testing_framework": custom_structure.get(
+                    "testing_framework", "custom"
+                ),
                 "project_structure": {
                     "base_path": target_path,
                     "directories": custom_structure.get("directories", []),
                     "files": custom_structure.get("files", []),
-                    "dependencies": custom_structure.get("dependencies", [])
-                }
+                    "dependencies": custom_structure.get("dependencies", []),
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"Error creating custom project: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
+            return {"success": False, "error": str(e)}
+
     def list_generated_projects(self) -> Dict[str, Any]:
         """List all generated projects."""
         try:
             projects = []
             for project in self.generated_projects.values():
-                projects.append({
-                    "project_id": project.project_id,
-                    "project_name": project.project_name,
-                    "language": project.language,
-                    "framework": project.framework,
-                    "base_path": project.base_path,
-                    "created_at": project.created_at.isoformat()
-                })
-            
+                projects.append(
+                    {
+                        "project_id": project.project_id,
+                        "project_name": project.project_name,
+                        "language": project.language,
+                        "framework": project.framework,
+                        "base_path": project.base_path,
+                        "created_at": project.created_at.isoformat(),
+                    }
+                )
+
             logger.info(f"Listed {len(projects)} generated projects")
-            
+
             return {
                 "success": True,
                 "message": f"Found {len(projects)} generated projects",
                 "projects": projects,
-                "total_count": len(projects)
+                "total_count": len(projects),
             }
-            
+
         except Exception as e:
             logger.error(f"Error listing generated projects: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}

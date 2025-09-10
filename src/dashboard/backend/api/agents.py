@@ -33,7 +33,7 @@ async def get_agent_status_by_id(agent_id: str):
         for agent in agents:
             if agent["agent_id"] == agent_id:
                 return agent
-        
+
         raise HTTPException(status_code=404, detail="Agent not found")
     except HTTPException:
         raise
@@ -57,15 +57,15 @@ async def get_agent_count():
     """Get count of agents by status."""
     try:
         agents = await mcp_service.get_agent_status()
-        
+
         counts = {
             "total": len(agents),
             "operational": len([a for a in agents if a["status"] == "operational"]),
             "degraded": len([a for a in agents if a["status"] == "degraded"]),
             "down": len([a for a in agents if a["status"] == "down"]),
-            "limited": len([a for a in agents if a["status"] == "limited"])
+            "limited": len([a for a in agents if a["status"] == "limited"]),
         }
-        
+
         return counts
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
