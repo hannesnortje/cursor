@@ -3,6 +3,7 @@
 import logging
 import json
 import uuid
+import time
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 import asyncio
@@ -158,22 +159,172 @@ class EnhancedVectorStore:
         self.fallback_mode = False
         self.current_project_id = None
         self.project_collections = {}
+        self.last_recovery_attempt = None
+        self.recovery_interval = 30  # seconds between recovery attempts
+        self.fallback_start_time = None
 
         # Try to initialize Qdrant client
+        self._initialize_qdrant()
+
+    def _initialize_qdrant(self):
+        """Initialize Qdrant connection."""
         if QDRANT_AVAILABLE:
             try:
-                self.client = QdrantClient(url=qdrant_url)
+                self.client = QdrantClient(url=self.qdrant_url)
                 # Test connection
                 self.client.get_collections()
-                logger.info(f"Connected to Qdrant at {qdrant_url}")
+                logger.info(f"Connected to Qdrant at {self.qdrant_url}")
+                if self.fallback_mode:
+                    logger.info(
+                        "Recovered from fallback mode - Qdrant connection restored"
+                    )
+                    self._sync_memory_to_qdrant()
+                self.fallback_mode = False
+                self.fallback_start_time = None
             except Exception as e:
                 logger.warning(f"Failed to connect to Qdrant: {e}")
-                logger.info("Falling back to in-memory storage")
+                if not self.fallback_mode:
+                    logger.info("Entering fallback mode - using in-memory storage")
+                    self.fallback_start_time = datetime.now()
                 self.fallback_mode = True
                 self.client = None
         else:
             logger.info("Qdrant not available - using in-memory fallback")
             self.fallback_mode = True
+            self.fallback_start_time = datetime.now()
+
+    def _try_recover_qdrant(self):
+        """Attempt to recover Qdrant connection if in fallback mode."""
+        if not self.fallback_mode:
+            return True
+
+        # Check if enough time has passed since last recovery attempt
+        import time
+
+        current_time = time.time()
+        if (
+            self.last_recovery_attempt
+            and current_time - self.last_recovery_attempt < self.recovery_interval
+        ):
+            return False
+
+        self.last_recovery_attempt = current_time
+
+        try:
+            if QDRANT_AVAILABLE:
+                test_client = QdrantClient(url=self.qdrant_url)
+                test_client.get_collections()
+
+                # Recovery successful
+                self.client = test_client
+                self.fallback_mode = False
+                self.fallback_start_time = None
+                logger.info("🎉 Successfully recovered Qdrant connection!")
+
+                # Sync any data that was stored in memory during fallback
+                self._sync_memory_to_qdrant()
+                return True
+        except Exception as e:
+            logger.debug(f"Qdrant recovery attempt failed: {e}")
+
+        return False
+
+    def _sync_memory_to_qdrant(self):
+        """Sync in-memory data back to Qdrant when connection is restored."""
+        if self.fallback_mode or not self.client:
+            return
+
+        try:
+            synced_collections = 0
+            synced_points = 0
+
+            for collection_name, points in self.in_memory_store.collections.items():
+                if not points:
+                    continue
+
+                try:
+                    # Create collection if it doesn't exist
+                    vector_size = (
+                        len(self.in_memory_store.embeddings[collection_name][0])
+                        if self.in_memory_store.embeddings[collection_name]
+                        else 384
+                    )
+                    self.create_collection(collection_name.split("_")[-1], vector_size)
+
+                    # Convert memory points to Qdrant format
+                    qdrant_points = []
+                    for i, point in enumerate(points):
+                        qdrant_points.append(
+                            PointStruct(
+                                id=point["id"],
+                                vector=self.in_memory_store.embeddings[collection_name][
+                                    i
+                                ],
+                                payload=point.get("payload", {}),
+                            )
+                        )
+
+                    # Upsert to Qdrant
+                    self.client.upsert(
+                        collection_name=collection_name, points=qdrant_points
+                    )
+                    synced_points += len(qdrant_points)
+                    synced_collections += 1
+
+                    logger.info(
+                        f"Synced {len(qdrant_points)} points from {collection_name}"
+                    )
+
+                except Exception as e:
+                    logger.warning(f"Failed to sync collection {collection_name}: {e}")
+
+            if synced_points > 0:
+                logger.info(
+                    f"🔄 Successfully synced {synced_points} points across {synced_collections} collections to Qdrant"
+                )
+
+                # Clear memory store after successful sync
+                self.in_memory_store.collections.clear()
+                self.in_memory_store.embeddings.clear()
+
+        except Exception as e:
+            logger.error(f"Failed to sync memory data to Qdrant: {e}")
+
+    def _execute_with_recovery(
+        self, operation_name: str, operation_func, *args, **kwargs
+    ):
+        """Execute operation with automatic recovery attempt."""
+        # Try recovery first if in fallback mode
+        self._try_recover_qdrant()
+
+        if self.fallback_mode:
+            logger.debug(f"Executing {operation_name} in fallback mode")
+            return operation_func(*args, **kwargs)
+
+        try:
+            # Try Qdrant operation
+            return operation_func(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"Qdrant operation {operation_name} failed: {e}")
+            # Don't immediately switch to fallback - try recovery first
+            if self._try_recover_qdrant():
+                try:
+                    return operation_func(*args, **kwargs)
+                except Exception as e2:
+                    logger.error(
+                        f"Operation {operation_name} failed even after recovery: {e2}"
+                    )
+
+            # Only now switch to fallback mode
+            if not self.fallback_mode:
+                logger.warning(
+                    f"Switching to fallback mode due to {operation_name} failure"
+                )
+                self.fallback_mode = True
+                self.fallback_start_time = datetime.now()
+
+            # Execute fallback operation
+            return operation_func(*args, **kwargs)
 
     def set_current_project(self, project_id: str) -> bool:
         """Set the current project context."""
@@ -215,24 +366,28 @@ class EnhancedVectorStore:
         return success
 
     def create_collection(self, collection_name: str, vector_size: int = 1536) -> bool:
-        """Create a collection."""
+        """Create a collection with automatic recovery."""
         full_name = self.get_collection_name(collection_name)
 
-        if self.fallback_mode:
-            return self.in_memory_store.create_collection(full_name, vector_size)
-
-        try:
+        def _qdrant_create():
             self.client.create_collection(
                 collection_name=full_name,
                 vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
             logger.info(f"Created Qdrant collection: {full_name}")
             return True
+
+        def _fallback_create():
+            return self.in_memory_store.create_collection(full_name, vector_size)
+
+        if self.fallback_mode:
+            return _fallback_create()
+
+        try:
+            return self._execute_with_recovery("create_collection", _qdrant_create)
         except Exception as e:
             logger.error(f"Failed to create collection {full_name}: {e}")
-            logger.info("Falling back to in-memory storage")
-            self.fallback_mode = True
-            return self.in_memory_store.create_collection(full_name, vector_size)
+            return _fallback_create()
 
     def upsert_conversation(
         self,
@@ -311,11 +466,9 @@ class EnhancedVectorStore:
         return self.upsert_points(collection_name, [point])
 
     def upsert_points(self, collection_name: str, points: List[Dict[str, Any]]) -> bool:
-        """Upsert points to collection."""
-        if self.fallback_mode:
-            return self.in_memory_store.upsert_points(collection_name, points)
+        """Upsert points to collection with automatic recovery."""
 
-        try:
+        def _qdrant_upsert():
             # Convert to Qdrant format
             qdrant_points = []
             for point in points:
@@ -330,11 +483,18 @@ class EnhancedVectorStore:
             self.client.upsert(collection_name=collection_name, points=qdrant_points)
             logger.info(f"Upserted {len(points)} points to {collection_name}")
             return True
+
+        def _fallback_upsert():
+            return self.in_memory_store.upsert_points(collection_name, points)
+
+        if self.fallback_mode:
+            return _fallback_upsert()
+
+        try:
+            return self._execute_with_recovery("upsert_points", _qdrant_upsert)
         except Exception as e:
             logger.error(f"Failed to upsert points to {collection_name}: {e}")
-            logger.info("Falling back to in-memory storage")
-            self.fallback_mode = True
-            return self.in_memory_store.upsert_points(collection_name, points)
+            return _fallback_upsert()
 
     def search_conversations(
         self, query_embedding: List[float], limit: int = 10
@@ -415,6 +575,57 @@ class EnhancedVectorStore:
             logger.error(f"Failed to get collection info for {full_name}: {e}")
             return {"points_count": 0, "status": "error", "error": str(e)}
 
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get comprehensive health status of the vector store."""
+        status = {
+            "mode": "qdrant" if not self.fallback_mode else "fallback",
+            "qdrant_available": QDRANT_AVAILABLE,
+            "connected": not self.fallback_mode,
+            "qdrant_url": self.qdrant_url,
+            "current_project": self.current_project_id,
+        }
+
+        if self.fallback_mode:
+            status.update(
+                {
+                    "fallback_duration": (
+                        (datetime.now() - self.fallback_start_time).total_seconds()
+                        if self.fallback_start_time
+                        else 0
+                    ),
+                    "last_recovery_attempt": self.last_recovery_attempt,
+                    "next_recovery_in": max(
+                        0,
+                        self.recovery_interval
+                        - (time.time() - (self.last_recovery_attempt or 0)),
+                    ),
+                    "memory_collections": len(self.in_memory_store.collections),
+                    "memory_points": sum(
+                        len(collection)
+                        for collection in self.in_memory_store.collections.values()
+                    ),
+                }
+            )
+
+        try:
+            if not self.fallback_mode and self.client:
+                collections = self.client.get_collections()
+                status["qdrant_collections"] = (
+                    len(collections.collections) if collections else 0
+                )
+        except:
+            status["qdrant_collections"] = "unknown"
+
+        return status
+
+    def force_recovery_attempt(self) -> bool:
+        """Force an immediate recovery attempt."""
+        if not self.fallback_mode:
+            return True
+
+        self.last_recovery_attempt = None  # Reset to force attempt
+        return self._try_recover_qdrant()
+
     def get_project_stats(self, project_id: str) -> Dict[str, Any]:
         """Get statistics for a project."""
         self.set_current_project(project_id)
@@ -436,6 +647,38 @@ class EnhancedVectorStore:
         for collection in collections:
             info = self.get_collection_info(collection)
             stats["collections"][collection] = info
+
+        return stats
+
+    def get_collection_stats(
+        self, collection_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get statistics for collections (compatibility method)."""
+        if collection_name:
+            return self.get_collection_info(collection_name)
+
+        # Return stats for all collections
+        collections = [
+            "conversations",
+            "projects",
+            "agents",
+            "knowledge",
+            "sprints",
+            "documents",
+        ]
+
+        stats = {
+            "mode": "in_memory_fallback" if self.fallback_mode else "qdrant",
+            "total_collections": len(collections),
+            "collections": {},
+        }
+
+        for collection in collections:
+            try:
+                info = self.get_collection_info(collection)
+                stats["collections"][collection] = info
+            except Exception as e:
+                stats["collections"][collection] = {"error": str(e), "count": 0}
 
         return stats
 

@@ -26,6 +26,7 @@ class DashboardStatus:
     version: str
     mcp_connected: bool
     services: Dict[str, str] = field(default_factory=dict)
+    vector_store_health: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

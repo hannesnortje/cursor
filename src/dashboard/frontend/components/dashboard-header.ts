@@ -1,4 +1,4 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, css, html } from 'lit';
 
 // Type declarations for Lit 3
 declare global {
@@ -31,7 +31,7 @@ export class DashboardHeader extends LitElement {
               Real-time monitoring and visualization
             </p>
           </div>
-          
+
           <div class="header-right">
             <div class="connection-status">
               <div class="status-indicator ${this.websocketConnected ? 'connected' : 'disconnected'}">
@@ -47,7 +47,7 @@ export class DashboardHeader extends LitElement {
                 </span>
               </div>
             </div>
-            
+
             <div class="header-actions">
               <button class="action-btn refresh-btn" @click=${this.refreshPage}>
                 🔄 Refresh
@@ -67,8 +67,11 @@ export class DashboardHeader extends LitElement {
   }
 
   private openSettings(): void {
-    // TODO: Implement settings modal
-    console.log('Settings clicked');
+    // Dispatch event to open settings panel
+    this.dispatchEvent(new CustomEvent('open-settings', {
+      bubbles: true,
+      composed: true
+    }));
   }
 
   static styles = css`
@@ -89,9 +92,9 @@ export class DashboardHeader extends LitElement {
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(90deg, 
-        rgba(255, 255, 255, 0.1) 0%, 
-        rgba(255, 255, 255, 0.05) 50%, 
+      background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
         rgba(255, 255, 255, 0.1) 100%);
       pointer-events: none;
     }

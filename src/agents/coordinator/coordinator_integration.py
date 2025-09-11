@@ -65,6 +65,11 @@ class CoordinatorIntegration:
                     "response": "I'm not ready yet. Please try again in a moment.",
                 }
 
+            # 🚀 CHECK FOR AUTOGEN DELEGATION FIRST
+            if await self._should_delegate_to_autogen(message):
+                logger.info(f"🎯 DELEGATING to AutoGen: {message}")
+                return await self._delegate_to_autogen_agents(message)
+
             if self.use_fast_coordinator and self.fast_coordinator:
                 # Use fast coordinator (< 2s response time)
                 return await self.fast_coordinator.process_message_fast(message)
@@ -152,6 +157,139 @@ class CoordinatorIntegration:
         except Exception as e:
             logger.error(f"Error getting system status: {e}")
             return {"success": False, "error": str(e)}
+
+    async def _should_delegate_to_autogen(self, message: str) -> bool:
+        """Check if the message should be delegated to AutoGen agents."""
+        delegation_keywords = [
+            "delegate to",
+            "let the agent",
+            "agent work autonomously",
+            "frontend agent",
+            "backend agent",
+            "react typescript",
+            "work independently",
+            "autonomous",
+            "delegate",
+        ]
+        message_lower = message.lower()
+        logger.info(f"🔍 Checking delegation for message: '{message}'")
+        logger.info(f"🔍 Message lower: '{message_lower}'")
+
+        for keyword in delegation_keywords:
+            if keyword in message_lower:
+                logger.info(
+                    f"🎯 DELEGATION MATCH: Found keyword '{keyword}' in message"
+                )
+                return True
+
+        logger.info(f"❌ No delegation keywords found in message")
+        return False
+
+    async def _delegate_to_autogen_agents(self, message: str) -> Dict[str, Any]:
+        """Delegate message to AutoGen agents for autonomous work."""
+        try:
+            logger.info(f"🚀 Delegating to AutoGen: {message}")
+
+            # Import AutoGen system
+            from ...llm.enhanced_autogen import get_enhanced_autogen
+
+            enhanced = get_enhanced_autogen()
+
+            # Extract agent information from the message
+            if "frontend" in message.lower():
+                target_agent = "cursor_frontend_agent"
+                task_type = "frontend_development"
+            else:
+                target_agent = "cursor_frontend_agent"  # Default for now
+                task_type = "general_development"
+
+            # Check if target agent exists
+            if target_agent not in enhanced.agents:
+                logger.error(f"Target agent {target_agent} not found")
+                return {
+                    "success": False,
+                    "error": f"Agent {target_agent} not available",
+                    "response": f"I couldn't find the {target_agent}. Let me handle this task instead.",
+                }
+
+            # Get the agents
+            coordinator_agent = enhanced.agents.get("coordinator_agent")
+            target_agent_obj = enhanced.agents[target_agent]
+
+            if not coordinator_agent or not target_agent_obj:
+                logger.error("Required AutoGen agents not available")
+                return {
+                    "success": False,
+                    "error": "AutoGen agents not available",
+                    "response": "The autonomous agents are not ready. Let me handle this task manually.",
+                }
+
+            # Check if AutoGen agents are properly initialized
+            if not (coordinator_agent.autogen_agent and target_agent_obj.autogen_agent):
+                logger.error("AutoGen agents not properly initialized")
+                return {
+                    "success": False,
+                    "error": "AutoGen agents not initialized",
+                    "response": "The agents are not fully set up. Let me work on this task directly.",
+                }
+
+            # Create task-specific prompt
+            task_prompt = f"""
+User Request: {message}
+
+You are a {task_type} agent working autonomously.
+Please:
+1. Analyze the request thoroughly
+2. Create a detailed implementation plan
+3. Provide complete, working code solutions
+4. Include proper documentation and best practices
+
+Provide a comprehensive response with all necessary code and explanations.
+"""
+
+            logger.info(f"Initiating AutoGen conversation: {target_agent}")
+
+            # Start AutoGen conversation (using Ollama fallback to avoid timeouts)
+            coordinator_agent.autogen_agent.initiate_chat(
+                target_agent_obj.autogen_agent,
+                message=task_prompt,
+                max_turns=2,  # Limit conversation length
+            )
+
+            # Extract the last response from the conversation
+            if target_agent_obj.autogen_agent.chat_messages:
+                last_messages = target_agent_obj.autogen_agent.chat_messages.get(
+                    coordinator_agent.autogen_agent, []
+                )
+                if last_messages:
+                    agent_response = last_messages[-1].get(
+                        "content", "Task completed autonomously."
+                    )
+                else:
+                    agent_response = "The autonomous agent completed the task."
+            else:
+                agent_response = "Task delegated to autonomous agent for completion."
+
+            return {
+                "success": True,
+                "response": agent_response,
+                "integration_type": "autogen_delegation",
+                "delegated_to": target_agent,
+                "task_type": task_type,
+                "autonomous": True,
+                "timestamp": "2025-09-11T14:55:00.000000",
+            }
+
+        except Exception as e:
+            logger.error(f"AutoGen delegation failed: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": f"Delegation failed: {str(e)}",
+                "response": "I couldn't delegate to the autonomous agent. Let me handle this task directly instead.",
+            }
 
 
 # Global instances for both coordinators

@@ -17,13 +17,13 @@ import uvicorn
 
 # Import will be handled when running as module
 try:
-    from .api import agents, system, performance, websocket
+    from .api import agents, system, performance, websocket, coordinator
     from .models.dashboard import DashboardStatus
     from .services.mcp_integration import MCPIntegrationService
     from .services.advanced_lit_manager import advanced_lit_manager
 except ImportError:
     # For direct execution, import from current directory
-    from api import agents, system, performance, websocket
+    from api import agents, system, performance, websocket, coordinator
     from models.dashboard import DashboardStatus
     from services.mcp_integration import MCPIntegrationService
     from services.advanced_lit_manager import advanced_lit_manager
@@ -75,6 +75,7 @@ app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
 app.include_router(system.router, prefix="/api/system", tags=["system"])
 app.include_router(performance.router, prefix="/api/performance", tags=["performance"])
 app.include_router(websocket.router, prefix="/api/websocket", tags=["websocket"])
+app.include_router(coordinator.router, prefix="/api/coordinator", tags=["coordinator"])
 
 
 @app.on_event("startup")
@@ -185,20 +186,48 @@ async def dashboard_test():
 @app.get("/api/status")
 async def get_dashboard_status() -> DashboardStatus:
     """Get overall dashboard status."""
+    # Get vector store health
+    vector_health = mcp_service.get_vector_store_health()
+
     return DashboardStatus(
-        status="operational",
+        status=(
+            "operational"
+            if vector_health.get("dashboard_assessment") == "healthy"
+            else "degraded"
+        ),
         timestamp=datetime.now().isoformat(),
         version="1.0.0",
         mcp_connected=mcp_service.is_connected(),
         services={
             "dashboard_backend": "operational",
             "mcp_integration": (
-                "operational" if mcp_service.is_connected() else "limited"
+                "operational" if mcp_service.is_connected() else "degraded"
             ),
-            "websocket": "operational",
-            "api_endpoints": "operational",
+            "vector_store": vector_health.get("dashboard_assessment", "unknown"),
+            "qdrant": "connected" if vector_health.get("connected") else "fallback",
         },
+        vector_store_health=vector_health,
     )
+
+
+@app.post("/api/vector-store/recovery")
+async def force_vector_store_recovery():
+    """Force a vector store recovery attempt."""
+    try:
+        result = mcp_service.force_vector_store_recovery()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/vector-store/health")
+async def get_vector_store_health():
+    """Get detailed vector store health information."""
+    try:
+        health = mcp_service.get_vector_store_health()
+        return health
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/health")

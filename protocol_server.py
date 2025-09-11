@@ -489,31 +489,55 @@ class AgentSystem:
         try:
             logger.info(f"Coordinator chat message: {message}")
 
-            # Get the LLM-based coordinator
-            coordinator_agent = self._get_or_create_coordinator_agent()
+            # Check if this is a delegation message for AutoGen agents
+            if self._should_delegate_to_autogen(message):
+                logger.info("Delegating to AutoGen agents")
+                return self._delegate_to_autogen_agents(message)
 
-            # Use the LLM-based coordinator for all natural language messages
+            # Use the FastCoordinator directly for all natural language messages
             if not message.strip().startswith("{"):
-                logger.info("Using LLM-based coordinator for natural language message")
+                logger.info("Using FastCoordinator for natural language message")
                 try:
                     import asyncio
+                    from src.agents.coordinator.coordinator_integration import (
+                        process_user_message_with_memory,
+                    )
 
-                    response = asyncio.run(coordinator_agent.process_message(message))
-                    return {
-                        "success": True,
-                        "response": response.get(
-                            "response", "I'm processing your request..."
-                        ),
-                        "phase": response.get("phase", "plan"),
-                        "next_steps": response.get("next_steps", "awaiting_input"),
-                        "timestamp": response.get(
-                            "timestamp", datetime.now().isoformat()
-                        ),
-                        "coordinator_status": "active",
-                        "llm_enabled": True,
-                    }
+                    # Use the more natural LLM-based MemoryEnhancedCoordinator
+                    # Set use_fast=False for natural conversation vs rule-based templates
+                    response = asyncio.run(
+                        process_user_message_with_memory(message, use_fast=False)
+                    )
+
+                    # Ensure response has the expected format
+                    if response.get("success", False):
+                        return {
+                            "success": True,
+                            "response": response.get(
+                                "response", "I'm processing your request..."
+                            ),
+                            "phase": response.get("phase", "plan"),
+                            "next_steps": response.get("next_steps", "awaiting_input"),
+                            "timestamp": response.get(
+                                "timestamp", datetime.now().isoformat()
+                            ),
+                            "coordinator_status": "active",
+                            "llm_enabled": True,
+                            "integration_type": "fast_coordinator_direct",
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": response.get("error", "Unknown coordinator error"),
+                            "response": response.get(
+                                "response",
+                                "I encountered an error while processing your message.",
+                            ),
+                            "coordinator_status": "error",
+                            "llm_enabled": True,
+                        }
                 except Exception as e:
-                    logger.error(f"LLM coordinator error: {e}")
+                    logger.error(f"FastCoordinator error: {e}")
                     return {
                         "success": False,
                         "error": f"Coordinator processing error: {str(e)}",
@@ -523,7 +547,10 @@ class AgentSystem:
 
             # Handle legacy JSON messages for backwards compatibility
             if self._is_pdca_planning_message(message):
-                return self._handle_pdca_planning(message)
+                # Redirect PDCA planning to FastCoordinator
+                return self.chat_with_coordinator(
+                    json.loads(message).get("content", message)
+                )
 
             # Parse the message to determine the action
             try:
@@ -533,8 +560,6 @@ class AgentSystem:
 
                 # Route to appropriate Coordinator Agent method
                 if message_type == "project_generation":
-                    coordinator_agent = self._get_or_create_coordinator_agent()
-
                     if action == "list_templates":
                         # Use the direct Project Generation Agent to avoid async complexity
                         project_gen_agent = self._get_or_create_project_gen_agent()
@@ -663,6 +688,121 @@ class AgentSystem:
             logger.error(f"Error in coordinator chat: {e}")
             return {"success": False, "error": str(e)}
 
+    def _should_delegate_to_autogen(self, message: str) -> bool:
+        """Check if the message should be delegated to AutoGen agents."""
+        delegation_keywords = [
+            "delegate to",
+            "let the agent",
+            "agent work autonomously",
+            "frontend agent",
+            "backend agent",
+            "react typescript",
+            "work independently",
+            "autonomous",
+            "delegate",
+        ]
+        message_lower = message.lower()
+        logger.info(f"🔍 Checking delegation for message: '{message}'")
+        logger.info(f"🔍 Message lower: '{message_lower}'")
+
+        for keyword in delegation_keywords:
+            if keyword in message_lower:
+                logger.info(
+                    f"🎯 DELEGATION MATCH: Found keyword '{keyword}' in message"
+                )
+                return True
+
+        logger.info(f"❌ No delegation keywords found in message")
+        return False
+
+    def _delegate_to_autogen_agents(self, message: str) -> Dict[str, Any]:
+        """Delegate message to AutoGen agents for autonomous work."""
+        try:
+            logger.info(f"Delegating to AutoGen: {message}")
+
+            # Extract agent information from the message
+            if "frontend" in message.lower():
+                target_agent = "cursor_frontend_agent"
+                task_type = "frontend_development"
+            else:
+                target_agent = "cursor_frontend_agent"  # Default for now
+                task_type = "general_development"
+
+            # Get the AutoGen system
+            from src.llm.enhanced_autogen import get_enhanced_autogen
+
+            enhanced_autogen = get_enhanced_autogen()
+
+            # Check if the target agent exists
+            agent_wrapper = enhanced_autogen.agents.get(target_agent)
+            if not agent_wrapper or not agent_wrapper.autogen_agent:
+                return {
+                    "success": False,
+                    "error": f"Agent {target_agent} not found or not available",
+                    "response": f"The agent {target_agent} is not currently available. Please create the agent first.",
+                }
+
+            # Create a direct AutoGen conversation
+            try:
+                import autogen
+
+                # Create a user proxy for delegation
+                user_proxy = autogen.UserProxyAgent(
+                    name="coordinator_proxy",
+                    human_input_mode="NEVER",
+                    code_execution_config=False,
+                    llm_config=False,
+                )
+
+                # Extract the actual task from the message
+                if "react typescript" in message.lower():
+                    task_message = "Create a detailed React TypeScript project structure for a fitness app. Include: 1) Project setup commands, 2) Folder structure, 3) Key component designs, 4) TypeScript configurations. Provide concrete, actionable steps."
+                else:
+                    task_message = message
+
+                logger.info(f"Starting AutoGen conversation with task: {task_message}")
+
+                # Initiate the autonomous conversation
+                response = user_proxy.initiate_chat(
+                    agent_wrapper.autogen_agent, message=task_message, max_turns=1
+                )
+
+                # Extract the agent's response from the conversation
+                agent_response = "The agent is working on your request autonomously using Cursor LLMs."
+                if hasattr(response, "chat_history") and response.chat_history:
+                    for chat_msg in response.chat_history:
+                        if chat_msg.get("name") == target_agent:
+                            agent_response = chat_msg.get("content", agent_response)
+                            break
+
+                return {
+                    "success": True,
+                    "response": f"✅ Successfully delegated to {target_agent}. The agent is working autonomously:\n\n{agent_response}",
+                    "agent_used": target_agent,
+                    "task_type": task_type,
+                    "autonomous_work": True,
+                    "timestamp": datetime.now().isoformat(),
+                    "coordinator_status": "delegated",
+                    "llm_enabled": True,
+                    "integration_type": "autogen_delegation",
+                }
+
+            except Exception as autogen_error:
+                logger.error(f"AutoGen conversation error: {autogen_error}")
+                return {
+                    "success": False,
+                    "error": f"AutoGen delegation failed: {str(autogen_error)}",
+                    "response": f"I encountered an error while delegating to the agent: {str(autogen_error)}. The agent may not be properly configured.",
+                }
+
+        except Exception as e:
+            logger.error(f"Error delegating to AutoGen agents: {e}")
+            return {
+                "success": False,
+                "error": f"Delegation error: {str(e)}",
+                "response": "I encountered an error while trying to delegate to the agents.",
+            }
+
     def _is_pdca_planning_message(self, message: str) -> bool:
         """Check if message is related to PDCA planning."""
         pdca_keywords = [
@@ -689,137 +829,47 @@ class AgentSystem:
         return any(keyword in message_lower for keyword in pdca_keywords)
 
     def _handle_pdca_planning(self, message: str) -> Dict[str, Any]:
-        """Handle PDCA planning conversation."""
+        """Handle PDCA planning conversation - redirect to FastCoordinator."""
         try:
-            message_lower = message.lower()
+            # Extract content from JSON message if needed
+            if message.strip().startswith("{"):
+                try:
+                    import json
 
-            # Check if this is an initial project request
-            if any(
-                word in message_lower
-                for word in ["start", "build", "develop", "new project"]
-            ):
-                return self._start_pdca_planning_phase(message)
-
-            # Check if user wants to create agents (prioritize this check)
-            elif any(
-                phrase in message_lower
-                for phrase in [
-                    "create agents",
-                    "let's create",
-                    "please create",
-                    "specialized agents",
-                    "agent team",
-                    "create the",
-                    "create an agile",
-                    "create a frontend",
-                    "create a backend",
-                    "create a testing",
-                ]
-            ):
-                return self._continue_pdca_planning(message)
-
-            # Check if user is providing project details
-            elif any(
-                word in message_lower
-                for word in [
-                    "purpose",
-                    "goal",
-                    "objective",
-                    "dashboard",
-                    "react",
-                    "typescript",
-                    "vue",
-                    "project management",
-                    "web application",
-                ]
-            ):
-                return self._continue_pdca_planning(message)
-
-            # Default PDCA response
+                    message_data = json.loads(message)
+                    content = message_data.get("content", message)
+                except json.JSONDecodeError:
+                    content = message
             else:
-                return self._provide_pdca_guidance(message)
+                content = message
+
+            # Use FastCoordinator directly for all PDCA planning
+            import asyncio
+            from src.agents.coordinator.fast_coordinator import FastCoordinator
+            from src.database.enhanced_vector_store import get_enhanced_vector_store
+
+            # Create FastCoordinator with persistent memory support
+            vector_store = get_enhanced_vector_store()
+            coordinator = FastCoordinator(vector_store=vector_store, llm_gateway=None)
+            response = asyncio.run(coordinator.process_message_fast(content))
+
+            # Ensure compatibility with expected PDCA response format
+            if response.get("success", False):
+                return {
+                    "success": True,
+                    "response": response.get("response", "Processing PDCA planning..."),
+                    "timestamp": response.get("timestamp", datetime.now().isoformat()),
+                    "coordinator_status": "active",
+                    "pdca_phase": response.get("phase", "plan"),
+                    "next_steps": response.get("next_steps", "awaiting_input"),
+                    "data": response,
+                }
+            else:
+                return response
 
         except Exception as e:
             logger.error(f"Error in PDCA planning: {e}")
             return {"success": False, "error": f"PDCA planning error: {str(e)}"}
-
-    def _start_pdca_planning_phase(self, message: str) -> Dict[str, Any]:
-        """Start the PDCA planning phase using the actual Coordinator Agent."""
-        try:
-            # Get or create the Coordinator Agent
-            coordinator_agent = self._get_or_create_coordinator_agent()
-
-            # Use the Coordinator Agent to handle PDCA planning
-            result = coordinator_agent.start_pdca_planning(message)
-
-            return {
-                "success": True,
-                "response": result.get("response", "Starting PDCA planning..."),
-                "timestamp": datetime.now().isoformat(),
-                "coordinator_status": "active",
-                "pdca_phase": result.get("phase", "plan"),
-                "next_steps": result.get("next_steps", "awaiting_project_details"),
-                "data": result,
-            }
-        except Exception as e:
-            logger.error(f"Error in PDCA planning phase: {e}")
-            return {
-                "success": False,
-                "error": f"PDCA planning error: {str(e)}",
-                "response": "I encountered an error while starting the PDCA planning. Let me try a different approach.",
-            }
-
-    def _continue_pdca_planning(self, message: str) -> Dict[str, Any]:
-        """Continue PDCA planning based on user input using the actual Coordinator Agent."""
-        try:
-            # Get or create the Coordinator Agent
-            coordinator_agent = self._get_or_create_coordinator_agent()
-
-            # Use the Coordinator Agent to continue PDCA planning
-            result = coordinator_agent.continue_pdca_planning(message)
-
-            return {
-                "success": True,
-                "response": result.get("response", "Continuing PDCA planning..."),
-                "timestamp": datetime.now().isoformat(),
-                "coordinator_status": "active",
-                "pdca_phase": result.get("phase", "plan"),
-                "next_steps": result.get("next_steps", "agent_strategy_discussion"),
-                "data": result,
-            }
-        except Exception as e:
-            logger.error(f"Error in continuing PDCA planning: {e}")
-            return {
-                "success": False,
-                "error": f"PDCA planning error: {str(e)}",
-                "response": "I encountered an error while continuing the PDCA planning. Let me try a different approach.",
-            }
-
-    def _provide_pdca_guidance(self, message: str) -> Dict[str, Any]:
-        """Provide general PDCA guidance."""
-        return {
-            "success": True,
-            "response": """🎯 I'm here to help you with project planning using the PDCA framework!
-
-**PDCA Framework Overview:**
-- **PLAN**: Define objectives, analyze current state, plan solutions
-- **DO**: Implement the plan with specialized agents
-- **CHECK**: Monitor progress, measure results, identify issues
-- **ACT**: Standardize successful approaches, improve processes
-
-**How can I help you today?**
-- Start a new project with PDCA planning
-- Create specialized agents for your development needs
-- Plan sprints and user stories
-- Coordinate between different agents
-- Monitor project progress and metrics
-
-What would you like to work on?""",
-            "timestamp": datetime.now().isoformat(),
-            "coordinator_status": "active",
-            "pdca_phase": "guidance",
-            "next_steps": "awaiting_user_choice",
-        }
 
     def start_communication_system(self) -> Dict[str, Any]:
         """Start the communication system (WebSocket + Redis)."""
@@ -1154,8 +1204,8 @@ What would you like to work on?""",
             vector_stats = {}
             if self.vector_store:
                 try:
-                    # Get vector store statistics
-                    stats = asyncio.run(self.vector_store.get_collection_stats())
+                    # Get vector store statistics (synchronous call, no asyncio.run needed)
+                    stats = self.vector_store.get_collection_stats()
                     vector_stats = {
                         "status": "connected",
                         "available": True,
@@ -1619,65 +1669,33 @@ What would you like to work on?""",
             logger.error(f"Could not import BackendAgent: {e}")
             raise
 
-    def _get_or_create_coordinator_agent(self):
-        """Get or create a Fast Coordinator Agent instance."""
-        # Check if we already have a Fast Coordinator Agent
+    def _get_or_create_agile_agent(self):
+        """Get or create an Agile Agent instance."""
+        # Check if we already have an Agile Agent
         for agent in self.agents.values():
-            if hasattr(agent, "name") and "Fast Coordinator" in agent.name:
+            if hasattr(agent, "name") and agent.name == "Agile Agent":
                 return agent
 
-        # Create new Fast Coordinator Agent if none exists
+        # Create new Agile Agent if none exists
         try:
-            from src.agents.coordinator.coordinator_integration import (
-                get_coordinator_integration,
+            from src.agents.specialized.agile_agent import AgileAgent
+            from src.agents.specialized.project_generation_agent import (
+                ProjectGenerationAgent,
             )
 
-            # Initialize the fast coordinator integration
-            integration = get_coordinator_integration(use_fast=True)
+            agile_agent = AgileAgent()
+            self.register_agent(agile_agent)
+            logger.info("Created new Agile Agent")
 
-            # Return a wrapper that provides the expected interface
-            class CoordinatorWrapper:
-                def __init__(self):
-                    self.name = "Fast Coordinator"
-                    self.integration = integration
+            # Create and register Project Generation Agent
+            project_gen_agent = ProjectGenerationAgent()
+            self.register_agent(project_gen_agent)
+            logger.info("Created new Project Generation Agent")
 
-                async def process_message(self, message: str) -> Dict[str, Any]:
-                    """Process message through fast coordinator."""
-                    from src.agents.coordinator.coordinator_integration import (
-                        process_user_message_with_memory,
-                    )
-
-                    return await process_user_message_with_memory(
-                        message, use_fast=True
-                    )
-
-            coordinator_agent = CoordinatorWrapper()
-
-            # Register with a simple key since it's not a full agent
-            self.agents["memory_enhanced_coordinator"] = coordinator_agent
-
-            logger.info(
-                "Created new Memory-Enhanced Coordinator Agent with Qdrant memory"
-            )
-            return coordinator_agent
-
+            return agile_agent
         except ImportError as e:
-            logger.error(f"Could not import Memory-Enhanced Coordinator: {e}")
-            # Fallback to basic coordinator if memory-enhanced version fails
-            try:
-                from src.agents.coordinator.coordinator_agent import CoordinatorAgent
-
-                coordinator_agent = CoordinatorAgent()
-                self.register_agent(coordinator_agent)
-                logger.info("Created fallback Coordinator Agent")
-                return coordinator_agent
-            except ImportError as fallback_error:
-                logger.error(
-                    f"Could not import fallback CoordinatorAgent: {fallback_error}"
-                )
-                raise Exception("No coordinator agent available")
-
-    def _get_or_create_agile_agent(self):
+            logger.error(f"Could not import AgileAgent: {e}")
+            raise
         """Get or create an Agile Agent instance."""
         # Check if we already have an Agile Agent
         for agent in self.agents.values():

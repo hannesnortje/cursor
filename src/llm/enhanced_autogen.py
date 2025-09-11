@@ -60,24 +60,115 @@ class FallbackConversationSystem:
         logger.info("Initialized fallback conversation system")
 
     def create_agent(
-        self, agent_id: str, role: AgentRole, project_id: str = None
+        self, agent_id: str, role: AgentRole, project_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Create a fallback agent."""
+        """Create a fallback agent with Qdrant persistence."""
         agent = {
             "agent_id": agent_id,
-            "role": role,
+            "role": role.role_name,
             "project_id": project_id,
             "status": "active",
             "created_at": datetime.now().isoformat(),
             "capabilities": role.capabilities,
             "specializations": role.specializations,
+            "system_message": role.system_message,
+            "preferred_models": role.preferred_models,
+            "max_tokens": role.max_tokens,
+            "temperature": role.temperature,
         }
+
+        # Store in memory
         self.agents[agent_id] = agent
-        logger.info(f"Created fallback agent: {agent_id} with role: {role.role_name}")
+
+        # Persist to Qdrant for dashboard access
+        try:
+            logger.info(f"Attempting to persist agent {agent['agent_id']} to Qdrant...")
+            self._persist_agent_to_qdrant(agent)
+            logger.info(
+                f"Created and persisted agent: {agent_id} with role: {role.role_name}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to persist agent {agent_id} to Qdrant: {e}")
+            # Continue anyway - agent exists in memory
+
         return agent
 
+    def _persist_agent_to_qdrant(self, agent: Dict[str, Any]) -> None:
+        """Persist agent data to Qdrant for dashboard access."""
+        try:
+            # Import vector store
+            from src.database.enhanced_vector_store import get_enhanced_vector_store
+
+            vector_store = get_enhanced_vector_store()
+            if not vector_store:
+                logger.warning(
+                    "Vector store not available - skipping agent persistence"
+                )
+                return
+
+            # Create collection name for agents
+            project_id = agent.get("project_id", "general")
+            collection_name = f"project_{project_id}_agents"
+
+            # Check if collection exists, create only if needed
+            try:
+                collection_info = vector_store.get_collection_info(collection_name)
+                logger.info(f"Collection {collection_name} already exists")
+            except:
+                # Collection doesn't exist, create it with correct vector size (384 for simple embeddings)
+                vector_store.create_collection(collection_name, vector_size=384)
+                logger.info(f"Created new collection {collection_name}")
+
+            # Create a simple embedding for the agent description
+            agent_description = f"Agent {agent['agent_id']} with role {agent['role']} and capabilities: {', '.join(agent['capabilities'])}"
+            embedding = vector_store._get_simple_embedding(agent_description)
+
+            # Generate UUID for Qdrant point ID
+            import uuid
+
+            point_id = str(uuid.uuid4())
+
+            # Prepare agent data for storage in Qdrant format
+            point_data = {
+                "id": point_id,
+                "vector": embedding,
+                "payload": {
+                    "agent_id": agent["agent_id"],
+                    "role": agent["role"],
+                    "project_id": agent["project_id"],
+                    "status": agent["status"],
+                    "created_at": agent["created_at"],
+                    "capabilities": agent["capabilities"],
+                    "specializations": agent["specializations"],
+                    "system_message": agent["system_message"],
+                    "preferred_models": agent.get("preferred_models", []),
+                    "max_tokens": agent.get("max_tokens", 4096),
+                    "temperature": agent.get("temperature", 0.7),
+                    "type": "agent_info",
+                    "last_updated": datetime.now().isoformat(),
+                    "content": agent_description,
+                },
+            }
+
+            # Store in Qdrant
+            success = vector_store.upsert_points(collection_name, [point_data])
+
+            # Store in Qdrant
+            success = vector_store.upsert_points(collection_name, [point_data])
+
+            if success:
+                logger.info(
+                    f"Successfully persisted agent {agent['agent_id']} to Qdrant collection {collection_name}"
+                )
+            else:
+                logger.warning(f"Failed to persist agent {agent['agent_id']} to Qdrant")
+
+        except Exception as e:
+            logger.error(f"Failed to persist agent to Qdrant: {e}")
+            raise
+
     def create_group_chat(
-        self, chat_id: str, agents: List[str], project_id: str = None
+        self, chat_id: str, agents: List[str], project_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create a fallback group chat."""
         chat = {
@@ -192,7 +283,9 @@ class FallbackConversationSystem:
 class EnhancedAutoGenAgent:
     """Enhanced AutoGen agent with dynamic role assignment and project integration."""
 
-    def __init__(self, agent_id: str, role: AgentRole, project_id: str = None):
+    def __init__(
+        self, agent_id: str, role: AgentRole, project_id: Optional[str] = None
+    ):
         self.agent_id = agent_id
         self.role = role
         self.project_id = project_id
@@ -201,19 +294,12 @@ class EnhancedAutoGenAgent:
 
         if AUTOGEN_AVAILABLE:
             try:
-                # Create AutoGen agent
+                # Create AutoGen agent with Cursor LLM + Ollama fallback configuration
+                llm_config = self._create_llm_config(role)
                 self.autogen_agent = AssistantAgent(
                     name=agent_id,
                     system_message=role.system_message,
-                    llm_config={
-                        "model": (
-                            role.preferred_models[0]
-                            if role.preferred_models
-                            else "gpt-4"
-                        ),
-                        "temperature": role.temperature,
-                        "max_tokens": role.max_tokens,
-                    },
+                    llm_config=llm_config,
                 )
                 logger.info(f"Created AutoGen agent: {agent_id}")
             except Exception as e:
@@ -222,6 +308,67 @@ class EnhancedAutoGenAgent:
         else:
             self.autogen_agent = None
             logger.info(f"Created fallback agent: {agent_id}")
+
+    def _create_llm_config(self, role: AgentRole) -> Dict[str, Any]:
+        """Create LLM configuration for AutoGen with Cursor LLM + Ollama fallback."""
+        # Check if local Ollama is available
+        ollama_available = self._check_ollama_availability()
+
+        config_list = []
+
+        # PRIMARY: Cursor LLMs (via OpenAI-compatible API)
+        cursor_models = [
+            "gpt-4o",  # Most capable
+            "claude-3.5-sonnet-20240620",  # Claude Sonnet
+            "gpt-4-turbo",  # GPT-4 Turbo
+            "gpt-4",  # Standard GPT-4
+        ]
+
+        for model in cursor_models:
+            config_list.append(
+                {
+                    "model": model,
+                    "api_key": "cursor-api-key",  # Cursor handles authentication
+                    "base_url": None,  # Use default OpenAI endpoint (Cursor will route)
+                }
+            )
+
+        # FALLBACK: Local Ollama models (if available)
+        if ollama_available:
+            ollama_models = [
+                "llama3.1:8b",  # Available model - primary local model
+                # "codellama:7b",  # Code-specific model (if available)
+                # "llama3.2:3b",  # Lightweight fallback (not available)
+            ]
+            for model in ollama_models:
+                config_list.append(
+                    {
+                        "model": model,
+                        "base_url": "http://localhost:11434/v1",
+                        "api_key": "ollama-local",  # Placeholder for local Ollama
+                    }
+                )
+
+        return {
+            "config_list": config_list,
+            "temperature": role.temperature,
+            "max_tokens": role.max_tokens,
+            "timeout": 60,
+            "cache_seed": None,  # Disable caching for dynamic responses
+        }
+
+    def _check_ollama_availability(self) -> bool:
+        """Check if Ollama is running and available."""
+        try:
+            import urllib.request
+            import urllib.error
+
+            # Use urllib instead of requests for minimal dependencies
+            req = urllib.request.Request("http://localhost:11434/api/tags")
+            with urllib.request.urlopen(req, timeout=2) as response:
+                return response.status == 200
+        except (urllib.error.URLError, urllib.error.HTTPError, Exception):
+            return False
 
     def get_info(self) -> Dict[str, Any]:
         """Get agent information."""
@@ -253,24 +400,37 @@ class EnhancedAutoGen:
             logger.info("Using AutoGen integration")
 
     def create_agent(
-        self, agent_id: str, role: AgentRole, project_id: str = None
+        self, agent_id: str, role: AgentRole, project_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create an enhanced agent."""
         if self.fallback_mode:
+            logger.info(f"Using fallback system to create agent {agent_id}")
             return self.fallback_system.create_agent(agent_id, role, project_id)
 
         try:
             agent = EnhancedAutoGenAgent(agent_id, role, project_id)
+            # Check if AutoGen creation was successful
+            if agent.autogen_agent is None:
+                logger.info(
+                    "AutoGen agent creation failed, falling back to fallback system"
+                )
+                self.fallback_mode = True
+                return self.fallback_system.create_agent(agent_id, role, project_id)
+
             self.agents[agent_id] = agent
+            logger.info(f"Successfully created AutoGen agent {agent_id}")
             return agent.get_info()
         except Exception as e:
             logger.error(f"Failed to create agent with AutoGen: {e}")
             logger.info("Falling back to fallback system")
             self.fallback_mode = True
+            logger.info(
+                f"Creating agent {agent_id} using fallback system with persistence"
+            )
             return self.fallback_system.create_agent(agent_id, role, project_id)
 
     def create_group_chat(
-        self, chat_id: str, agents: List[str], project_id: str = None
+        self, chat_id: str, agents: List[str], project_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create a group chat."""
         if self.fallback_mode:
@@ -278,18 +438,28 @@ class EnhancedAutoGen:
 
         try:
             # Get AutoGen agents
+            if not AUTOGEN_AVAILABLE:
+                logger.warning("AutoGen not available, cannot create group chat")
+                return {"error": "AutoGen not available", "status": "fallback"}
+
             autogen_agents = []
             for agent_id in agents:
                 if agent_id in self.agents:
-                    autogen_agents.append(self.agents[agent_id].autogen_agent)
+                    agent_wrapper = self.agents[agent_id]
+                    if agent_wrapper and agent_wrapper.autogen_agent:
+                        autogen_agents.append(agent_wrapper.autogen_agent)
 
             if not autogen_agents:
-                raise ValueError("No valid agents found")
+                logger.warning("No valid AutoGen agents found for group chat")
+                return {"error": "No valid agents", "status": "fallback"}
 
-            # Create group chat
-            group_chat = GroupChat(agents=autogen_agents, messages=[], max_round=10)
-
-            manager = GroupChatManager(groupchat=group_chat)
+            # Create group chat with proper AutoGen imports (only if AutoGen is available)
+            if AUTOGEN_AVAILABLE and GroupChat and GroupChatManager:
+                group_chat = GroupChat(agents=autogen_agents, messages=[], max_round=10)
+                manager = GroupChatManager(groupchat=group_chat)
+            else:
+                logger.warning("AutoGen classes not available")
+                return {"error": "AutoGen classes not available", "status": "fallback"}
 
             chat_info = {
                 "chat_id": chat_id,
@@ -399,4 +569,84 @@ def get_enhanced_autogen() -> EnhancedAutoGen:
     global _enhanced_autogen
     if _enhanced_autogen is None:
         _enhanced_autogen = EnhancedAutoGen()
+        # Initialize default agents for MCP delegation
+        _initialize_default_agents(_enhanced_autogen)
     return _enhanced_autogen
+
+
+def _initialize_default_agents(enhanced_autogen: EnhancedAutoGen):
+    """Initialize default agents required for MCP delegation."""
+    try:
+        logger.info("🚀 Initializing default AutoGen agents...")
+
+        # Create coordinator agent role
+        coordinator_role = AgentRole(
+            role_name="coordinator",
+            capabilities=["project_management", "task_delegation", "coordination"],
+            system_message="""You are a Coordinator Agent responsible for managing projects and delegating tasks to other agents.
+Your role is to:
+1. Understand project requirements and break them down into actionable tasks
+2. Delegate specific tasks to appropriate specialized agents
+3. Coordinate between different agents to ensure project completion
+4. Provide status updates and manage project timelines
+
+When you receive a task, analyze it and delegate to the appropriate specialized agent.
+Always be clear about the scope and requirements when delegating.""",
+            preferred_models=["gpt-4o", "claude-3.5-sonnet", "gpt-4-turbo"],
+            temperature=0.3,
+        )
+
+        # Create frontend agent role
+        frontend_role = AgentRole(
+            role_name="frontend_developer",
+            capabilities=["react", "typescript", "frontend_development", "ui_design"],
+            system_message="""You are a Frontend Development Agent specialized in React TypeScript applications.
+Your expertise includes:
+1. React component development with TypeScript
+2. Modern frontend architecture and best practices
+3. State management, routing, and UI libraries
+4. Building responsive and accessible user interfaces
+5. Project structure and development workflow setup
+
+When given a task, provide complete, working solutions with:
+- Proper TypeScript types and interfaces
+- Modern React patterns (hooks, functional components)
+- Clean, maintainable code structure
+- Clear documentation and comments
+- Best practices for performance and accessibility
+
+Always create production-ready code that follows current industry standards.""",
+            preferred_models=["gpt-4o", "claude-3.5-sonnet", "gpt-4-turbo"],
+            temperature=0.1,
+        )
+
+        # Create the agents
+        coordinator_result = enhanced_autogen.create_agent(
+            "coordinator_agent", coordinator_role
+        )
+        frontend_result = enhanced_autogen.create_agent(
+            "cursor_frontend_agent", frontend_role
+        )
+
+        # Log results
+        if coordinator_result.get("status") != "error":
+            logger.info("✅ Created coordinator_agent successfully")
+        else:
+            logger.error(f"❌ Failed to create coordinator_agent: {coordinator_result}")
+
+        if frontend_result.get("status") != "error":
+            logger.info("✅ Created cursor_frontend_agent successfully")
+        else:
+            logger.error(
+                f"❌ Failed to create cursor_frontend_agent: {frontend_result}"
+            )
+
+        logger.info(
+            f"🎯 AutoGen initialization complete. Total agents: {len(enhanced_autogen.agents)}"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize default agents: {e}")
+        import traceback
+
+        traceback.print_exc()

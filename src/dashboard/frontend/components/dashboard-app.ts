@@ -1,4 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, css, html } from 'lit';
+
+// Import settings panel component
+import './settings-panel.ts';
 
 // Type declarations for Lit 3
 declare global {
@@ -48,7 +51,8 @@ export class DashboardApp extends LitElement {
     systemHealth: { type: Object },
     performanceMetrics: { type: Object },
     websocketConnected: { type: Boolean },
-    refreshInterval: { type: Number }
+    refreshInterval: { type: Number },
+    showSettings: { type: Boolean }
   };
 
   private agents: Agent[] = [];
@@ -58,6 +62,7 @@ export class DashboardApp extends LitElement {
   private refreshInterval: number = 30000; // 30 seconds
   private websocket: WebSocket | null = null;
   private intervalId: number | null = null;
+  private showSettings: boolean = false;
 
   constructor() {
     super();
@@ -67,6 +72,7 @@ export class DashboardApp extends LitElement {
     this.websocketConnected = false;
     this.websocket = null;
     this.intervalId = null;
+    this.showSettings = false;
   }
 
   connectedCallback(): void {
@@ -101,15 +107,15 @@ export class DashboardApp extends LitElement {
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/websocket/ws`;
-      
+
       this.websocket = new WebSocket(wsUrl);
-      
+
       this.websocket.onopen = () => {
         console.log('🔌 WebSocket connected');
         this.websocketConnected = true;
         this.requestUpdate('websocketConnected');
       };
-      
+
       this.websocket.onmessage = (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data);
@@ -118,19 +124,19 @@ export class DashboardApp extends LitElement {
           console.error('Error parsing WebSocket message:', error);
         }
       };
-      
+
       this.websocket.onclose = () => {
         console.log('🔌 WebSocket disconnected');
         this.websocketConnected = false;
         this.requestUpdate('websocketConnected');
       };
-      
+
       this.websocket.onerror = (error: Event) => {
         console.error('WebSocket error:', error);
         this.websocketConnected = false;
         this.requestUpdate('websocketConnected');
       };
-      
+
     } catch (error) {
       console.error('Failed to initialize WebSocket:', error);
       this.websocketConnected = false;
@@ -171,7 +177,7 @@ export class DashboardApp extends LitElement {
   private startDataRefresh(): void {
     // Initial data load
     this.refreshData();
-    
+
     // Set up periodic refresh
     this.intervalId = window.setInterval(() => {
       this.refreshData();
@@ -232,36 +238,59 @@ export class DashboardApp extends LitElement {
     }
   }
 
+  private openSettings(): void {
+    this.showSettings = true;
+    this.requestUpdate();
+  }
+
+  private closeSettings(): void {
+    this.showSettings = false;
+    this.requestUpdate();
+  }
+
+  private handleSettingsSaved(event: CustomEvent): void {
+    console.log('💾 Settings saved:', event.detail);
+    // TODO: Apply settings to coordinator via API call
+    this.closeSettings();
+  }
+
   render() {
     try {
       return html`
         <div class="dashboard">
-          <dashboard-header 
-            .websocketConnected=${this.websocketConnected}>
+          <dashboard-header
+            .websocketConnected=${this.websocketConnected}
+            @open-settings=${this.openSettings}>
           </dashboard-header>
-          
+
           <main class="dashboard-content">
             <div class="dashboard-grid">
-              <system-health-card 
+              <system-health-card
                 .systemHealth=${this.systemHealth}>
               </system-health-card>
-              
-              <agents-status-card 
+
+              <agents-status-card
                 .agents=${this.agents}>
               </agents-status-card>
-              
-              <performance-card 
+
+              <performance-card
                 .performanceMetrics=${this.performanceMetrics}>
               </performance-card>
-              
-              <quick-actions-card 
+
+              <quick-actions-card
                 @refresh-data=${this.refreshData}
                 @ping-websocket=${this.pingWebSocket}>
               </quick-actions-card>
             </div>
           </main>
-          
+
           <dashboard-footer></dashboard-footer>
+
+          <!-- Settings Panel -->
+          <settings-panel
+            .isVisible=${this.showSettings}
+            @settings-saved=${this.handleSettingsSaved}>
+          </settings-panel>
         </div>
       `;
     } catch (error) {
@@ -296,7 +325,7 @@ export class DashboardApp extends LitElement {
       left: 0;
       width: 100%;
       height: 100%;
-      background: 
+      background:
         radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
         radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
         radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
@@ -361,11 +390,11 @@ export class DashboardApp extends LitElement {
         gap: 1rem;
         animation: none;
       }
-      
+
       .dashboard-grid > * {
         animation: none;
       }
-      
+
       .dashboard-content {
         padding: 1rem;
       }

@@ -203,18 +203,69 @@ class CoordinatorAgent(BaseAgent):
             # Create agent ID
             agent_id = f"agent_{agent_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-            # Store agent info
-            agent_info = {
-                "agent_id": agent_id,
-                "agent_type": agent_type,
-                "name": name,
-                "description": description,
-                "capabilities": capabilities,
-                "status": "active",
-                "created_at": datetime.now().isoformat(),
-            }
+            # Actually create the agent using MCP tools
+            try:
+                from src.mcp_tools.handlers.autogen_tools import handle_autogen_tool
+                import asyncio
 
-            # Add to active agents list
+                # Prepare arguments for MCP agent creation
+                arguments = {
+                    "agent_id": agent_id,
+                    "role_name": agent_type,
+                    "capabilities": capabilities,
+                    "system_message": f"You are a {name}. {description}. Your capabilities include: {', '.join(capabilities)}.",
+                }
+
+                # Create a response handler to capture the result
+                creation_result = {"success": False, "error": None, "agent_info": None}
+
+                def response_handler(request_id: str, response=None, error=None):
+                    if error:
+                        creation_result["error"] = error.get("message", str(error))
+                    else:
+                        creation_result["success"] = True
+                        if response and "structuredContent" in response:
+                            creation_result["agent_info"] = response[
+                                "structuredContent"
+                            ].get("agent_info")
+
+                # Call the actual MCP agent creation tool
+                handle_autogen_tool(
+                    "create_agent", arguments, "coordinator_create", response_handler
+                )
+
+                # Check if MCP creation was successful
+                if not creation_result["success"]:
+                    raise Exception(
+                        f"MCP agent creation failed: {creation_result.get('error', 'Unknown error')}"
+                    )
+
+                # Store agent info locally for coordinator tracking
+                agent_info = creation_result["agent_info"] or {
+                    "agent_id": agent_id,
+                    "agent_type": agent_type,
+                    "name": name,
+                    "description": description,
+                    "capabilities": capabilities,
+                    "status": "active",
+                    "created_at": datetime.now().isoformat(),
+                }
+
+            except Exception as mcp_error:
+                self.logger.error(f"MCP agent creation failed: {mcp_error}")
+                # Fallback to local-only creation for now
+                agent_info = {
+                    "agent_id": agent_id,
+                    "agent_type": agent_type,
+                    "name": name,
+                    "description": description,
+                    "capabilities": capabilities,
+                    "status": "active",
+                    "created_at": datetime.now().isoformat(),
+                    "created_via": "fallback_local_only",
+                }
+
+            # Add to active agents list for coordinator tracking
             if not hasattr(self, "active_agents"):
                 self.active_agents = []
             self.active_agents.append(agent_info)

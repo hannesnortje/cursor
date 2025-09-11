@@ -294,7 +294,17 @@ What would you like to work on?""",
             return "frontend_web_application"
         elif any(term in message for term in ["api", "backend", "server"]):
             return "backend_api_service"
-        elif any(term in message for term in ["mobile", "app", "ios", "android"]):
+        elif any(
+            term in message
+            for term in [
+                "mobile app",
+                "ios",
+                "android",
+                "native app",
+                "smartphone",
+                "tablet",
+            ]
+        ):
             return "mobile_application"
         else:
             return "web_application"
