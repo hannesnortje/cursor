@@ -167,6 +167,19 @@ def get_autogen_tools() -> List[Dict[str, Any]]:
                 "required": ["message", "recipients"],
             },
         },
+        {
+            "name": "cursor_llm_bridge",
+            "description": "Alias for process_message that routes to the True Cursor LLM Bridge (use this to avoid IDE wrapper)",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string", "description": "The message content to send to agents"},
+                    "recipients": {"type": "array", "items": {"type": "string"}, "description": "List of agent IDs to send the message to"},
+                    "sender": {"type": "string", "description": "Identifier of the message sender (default: user)"},
+                },
+                "required": ["message", "recipients"],
+            },
+        },
     ]
 
 
@@ -175,74 +188,118 @@ def _get_enhanced_autogen():
     try:
         # PRIORITY 1: True Cursor LLM Bridge with compatibility wrapper
         from src.llm import get_enhanced_autogen
+
         cursor_llm_bridge = get_enhanced_autogen()
-        
+
         # Create compatibility wrapper that routes process_message to Cursor LLM Bridge
         # and other methods to basic implementations
         class CursorLLMCompatibilityWrapper:
             def __init__(self, cursor_bridge):
                 self.cursor_bridge = cursor_bridge
-                
+
             def process_message(self, message, recipients, sender="user"):
                 # Route to TRUE CURSOR LLM BRIDGE for actual LLM processing
                 return self.cursor_bridge.process_message(message, recipients, sender)
-                
+
             def create_agent(self, agent_id, role, project_id=None):
-                return {"success": True, "agent_id": agent_id, "method": "cursor_llm_bridge_active"}
+                return {
+                    "success": True,
+                    "agent_id": agent_id,
+                    "method": "cursor_llm_bridge_active",
+                }
+
             def create_group_chat(self, chat_id, agents, project_id=None):
-                return {"success": True, "chat_id": chat_id, "method": "cursor_llm_bridge_active"}
+                return {
+                    "success": True,
+                    "chat_id": chat_id,
+                    "method": "cursor_llm_bridge_active",
+                }
+
             def start_workflow(self, workflow_id, workflow_type, participants):
-                return {"success": True, "workflow_id": workflow_id, "method": "cursor_llm_bridge_active"}
+                return {
+                    "success": True,
+                    "workflow_id": workflow_id,
+                    "method": "cursor_llm_bridge_active",
+                }
+
             def get_roles(self):
                 return ["coordinator", "developer", "reviewer", "tester"]
+
             def get_workflows(self):
                 return ["code_review", "sprint_planning", "testing"]
+
             def get_agent_info(self, agent_id):
                 return {"agent_id": agent_id, "method": "cursor_llm_bridge_active"}
+
             def get_chat_info(self, chat_id):
                 return {"chat_id": chat_id, "method": "cursor_llm_bridge_active"}
-            def start_conversation(self, conversation_id, participants, conversation_type="general"):
-                return {"success": True, "conversation_id": conversation_id, "method": "cursor_llm_bridge_active"}
-        
+
+            def start_conversation(
+                self, conversation_id, participants, conversation_type="general"
+            ):
+                return {
+                    "success": True,
+                    "conversation_id": conversation_id,
+                    "method": "cursor_llm_bridge_active",
+                }
+
         return CursorLLMCompatibilityWrapper(cursor_llm_bridge)
-        
+
     except ImportError:
         try:
             from llm import get_enhanced_autogen
+
             return get_enhanced_autogen()
         except ImportError:
             try:
                 # PRIORITY 2: Enhanced standalone fallback (only if LLM module fails)
                 import sys
                 import os
+
                 # Add current directory and src to path
                 current_dir = os.path.dirname(os.path.abspath(__file__))
-                src_dir = os.path.join(current_dir, '..', '..')
+                src_dir = os.path.join(current_dir, "..", "..")
                 if src_dir not in sys.path:
                     sys.path.insert(0, src_dir)
                 from llm_fallback import get_enhanced_autogen
+
                 return get_enhanced_autogen()
             except ImportError:
                 # PRIORITY 3: Final fallback - create basic instance with all required methods
                 class BasicFallback:
                     def process_message(self, message, recipients, sender="user"):
-                        return {"success": True, "method": "emergency_fallback", "responses": {}}
+                        return {
+                            "success": True,
+                            "method": "emergency_fallback",
+                            "responses": {},
+                        }
+
                     def create_agent(self, agent_id, role, project_id=None):
                         return {"success": True, "agent_id": agent_id}
+
                     def create_group_chat(self, chat_id, agents, project_id=None):
                         return {"success": True, "chat_id": chat_id}
+
                     def start_workflow(self, workflow_id, workflow_type, participants):
                         return {"success": True, "workflow_id": workflow_id}
+
                     def get_roles(self):
                         return []
+
                     def get_workflows(self):
                         return []
+
                     def get_agent_info(self, agent_id):
                         return {"agent_id": agent_id}
+
                     def get_chat_info(self, chat_id):
                         return {"chat_id": chat_id}
-                    def start_conversation(self, conversation_id, participants, conversation_type="general"):
+
+                    def start_conversation(
+                        self, conversation_id, participants, conversation_type="general"
+                    ):
                         return {"success": True, "conversation_id": conversation_id}
+
                 return BasicFallback()
 
 
@@ -255,6 +312,7 @@ def handle_autogen_tool(
         try:
             enhanced_autogen = _get_enhanced_autogen()
             enhanced_autogen = _get_enhanced_autogen()
+
             # AgentRole not available in basic fallback, create a simple substitute
             class AgentRole:
                 def __init__(self, role_name, capabilities, system_message, **kwargs):
@@ -318,7 +376,9 @@ def handle_autogen_tool(
                 )
                 return True
 
-            chat_info = enhanced_autogen.create_group_chat(str(chat_id), agents, project_id)
+            chat_info = enhanced_autogen.create_group_chat(
+                str(chat_id), agents, project_id
+            )
 
             send_response(
                 request_id,
@@ -357,7 +417,6 @@ def handle_autogen_tool(
                 )
                 return True
 
-            
             workflow_info = enhanced_autogen.start_workflow(
                 str(workflow_id), str(workflow_type), participants
             )
@@ -388,7 +447,6 @@ def handle_autogen_tool(
         try:
             enhanced_autogen = _get_enhanced_autogen()
 
-            
             roles = enhanced_autogen.get_roles()
 
             send_response(
@@ -414,7 +472,6 @@ def handle_autogen_tool(
         try:
             enhanced_autogen = _get_enhanced_autogen()
 
-            
             workflows = enhanced_autogen.get_workflows()
 
             send_response(
@@ -449,7 +506,6 @@ def handle_autogen_tool(
                 )
                 return True
 
-            
             agent_info = enhanced_autogen.get_agent_info(agent_id)
 
             if agent_info:
@@ -495,7 +551,6 @@ def handle_autogen_tool(
                 )
                 return True
 
-            
             chat_info = enhanced_autogen.get_chat_info(chat_id)
 
             if chat_info:
@@ -538,7 +593,6 @@ def handle_autogen_tool(
                 )
                 return True
 
-            
             conversation_info = enhanced_autogen.start_conversation(
                 str(conversation_id), participants, str(conversation_type)
             )
@@ -568,7 +622,7 @@ def handle_autogen_tool(
             )
         return True
 
-    elif tool_name == "process_message":
+    elif tool_name == "process_message" or tool_name == "cursor_llm_bridge":
         try:
             # Try multiple import paths to ensure compatibility
             try:
@@ -580,9 +634,10 @@ def handle_autogen_tool(
                     # Use standalone fallback that doesn't depend on complex imports
                     import sys
                     import os
+
                     # Add current directory and src to path
                     current_dir = os.path.dirname(os.path.abspath(__file__))
-                    src_dir = os.path.join(current_dir, '..', '..')
+                    src_dir = os.path.join(current_dir, "..", "..")
                     if src_dir not in sys.path:
                         sys.path.insert(0, src_dir)
                     from llm_fallback import get_enhanced_autogen
@@ -594,12 +649,16 @@ def handle_autogen_tool(
             if not message or not recipients:
                 send_response(
                     request_id,
-                    error={"code": -32602, "message": "Missing required parameters: message and recipients"},
+                    error={
+                        "code": -32602,
+                        "message": "Missing required parameters: message and recipients",
+                    },
                 )
                 return True
 
-            
-            result = enhanced_autogen.process_message(str(message), recipients, str(sender))
+            result = enhanced_autogen.process_message(
+                str(message), recipients, str(sender)
+            )
 
             # Return the RAW LLM response directly without MCP wrapper
             send_response(
